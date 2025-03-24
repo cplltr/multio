@@ -10,6 +10,12 @@ ecbuild_add_library(
         EncodeMtg2.cc
         EncodeMtg2.h
         AtlasGeoSetter.h
+        Options.h
+        Options.cc
+        MultIOM.cc
+        MultIOM.h
+        EncoderCache.cc
+        EncoderCache.h
 
     PRIVATE_INCLUDES
         ${ECKIT_INCLUDE_DIRS}
