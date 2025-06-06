@@ -26,13 +26,9 @@
 #include "atlas/parallel/mpi/mpi.h"
 
 #include "multio/action/encode-mtg2/EncodeMtg2.h"
-#include "multio/message/Glossary.h"
 #include "multio/message/Metadata.h"
-#include "multio/message/Parametrization.h"
 
 namespace multio::action::encode_mtg2::extract {
-
-using message::Parametrization;
 
 atlas::Grid readGrid(const std::string& name) {
     // atlas::mpi::Scope mpi_scope("self");
@@ -46,36 +42,57 @@ GridType createGrid(const std::string& atlasNamedGrid) {
     return GridType(structuredGrid);
 }
 
+template <typename T>
+std::string arrayToJSONString(const std::vector<T>& arr) {
+    std::ostringstream oss;
+    bool first = true;
+    oss << "[";
+    for (const auto& v : arr) {
+        if (first) {
+            first = false;
+        }
+        else {
+            oss << ", ";
+        }
+        oss << v;
+    }
+    oss << "]";
+    return oss.str();
+}
 
+
+template <typename MultiOMDict>
 struct AtlasGeoSetter {
-    using GridTypeFunction = std::function<void(const std::string& prefix, const std::string& gridName)>;
+    using GridTypeFunction = std::function<void(const std::string& gridName, const multio::message::Metadata&,
+                                                MultiOMDict&, MultiOMDict&)>;
 
-    static void handleGG(const std::string& prefix, const std::string& gridName) {
-        message::Metadata md{{prefix, true}};
+    static void handleGG(const std::string& gridName, const multio::message::Metadata& md, MultiOMDict& mars_dict,
+                         MultiOMDict& par_dict) {
+        MultiOMDict geom{MultiOMDictKind::ReducedGG};
 
         // std::regex reducedGaussianMatch{"^\\s*[O]\\d+\\s*$"};
         // bool isReducedGaussian = std::regex_match(gridName, reducedGaussianMatch);
 
         // TODO use MarsKeySet in future...
+        // std::string gridName = md.get<std::string>("grid");
         const auto gaussianGrid = createGrid<atlas::GaussianGrid>(gridName);
 
         // getAndSet(h, geom, "truncateDegrees", "truncate-degrees");
-        using namespace message::Mtg2;
-        md.set(prefix + std::string(gg::numberOfParallelsBetweenAPoleAndTheEquator), gaussianGrid.N());
+        geom.set("numberOfParallelsBetweenAPoleAndTheEquator", std::to_string(gaussianGrid.N()).c_str());
         // getAndSetIfNonZero(h, geom, "numberOfPointsAlongAMeridian", "number-of-points-along-a-meridian");
 
         {
             auto it = gaussianGrid.lonlat().begin();
 
-            md.set(prefix + std::string(gg::latitudeOfFirstGridPointInDegrees), (*it)[1]);
-            md.set(prefix + std::string(gg::longitudeOfFirstGridPointInDegrees), (*it)[0]);
+            geom.set("latitudeOfFirstGridPointInDegrees", std::to_string((*it)[1]).data());
+            geom.set("longitudeOfFirstGridPointInDegrees", std::to_string((*it)[0]).data());
 
             it += gaussianGrid.size() - 1;
-            md.set(prefix + std::string(gg::latitudeOfLastGridPointInDegrees), (*it)[1]);
+            geom.set("latitudeOfLastGridPointInDegrees", std::to_string((*it)[1]).data());
 
             const auto equator = gaussianGrid.N();
             const auto maxLongitude = gaussianGrid.x(gaussianGrid.nx(equator) - 1, equator);
-            md.set(prefix + std::string(gg::longitudeOfLastGridPointInDegrees), maxLongitude);
+            geom.set("longitudeOfLastGridPointInDegrees", std::to_string(maxLongitude).data());
         }
 
         {
@@ -84,12 +101,14 @@ struct AtlasGeoSetter {
             for (int i = 0; i < tmp.size(); ++i) {
                 pl[i] = long(tmp[i]);
             }
-            md.set(prefix + std::string(gg::pl), std::move(pl));
+            geom.set("pl", arrayToJSONString(pl).data());
         }
-        message::Parametrization::instance().update(md);
-    }
 
-    static void handleGrid(const std::string& prefix, const std::string& gridName) {
+        mars_dict.set("repres", "gg");
+        par_dict.set_geometry(std::move(geom));
+    }
+    static void handleGrid(const std::string& gridName, const multio::message::Metadata& md, MultiOMDict& mars_dict,
+                           MultiOMDict& par_dict) {
         const static std::vector<std::pair<std::string, GridTypeFunction>> gridMap{
             {"^\\s*[FON]\\d+\\s*$", &handleGG},
             // {"^\\s*L\\d+x\\d+\\s*$", &updateRegularLatLonGrid}
@@ -101,7 +120,7 @@ struct AtlasGeoSetter {
         });
 
         if (gridFunc != gridMap.cend()) {
-            gridFunc->second(prefix, gridName);
+            gridFunc->second(gridName, md, mars_dict, par_dict);
         }
         else {
             std::ostringstream oss;
