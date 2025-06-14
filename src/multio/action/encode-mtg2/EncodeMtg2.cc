@@ -118,6 +118,8 @@ std::string multiOMDictKindString(MultiOMDictKind kind) {
             return "regular-ll";
         case MultiOMDictKind::SH:
             return "sh";
+        case MultiOMDictKind::HEALPix:
+            return "HEALPix";
         default:
             NOTIMP;
     }
@@ -151,6 +153,7 @@ void MultiOMDict::set(const std::string& key, const std::string& val) {
 void MultiOMDict::set_geometry(MultiOMDict&& geom) {
     ASSERT(kind_ == MultiOMDictKind::Parametrization);
     switch (geom.kind_) {
+        case MultiOMDictKind::HEALPix:
         case MultiOMDictKind::ReducedGG:
         case MultiOMDictKind::RegularLL:
         case MultiOMDictKind::SH:
@@ -341,7 +344,12 @@ void EncodeMtg2::executeImpl(Message msg) {
             MultiOMDict geom{([&]() {
                 switch (repres) {
                     case Repres::GG:
-                        return MultiOMDictKind::ReducedGG;
+                        switch (grid[0]) {
+                            case 'H': // HEALPix
+                                return MultiOMDictKind::HEALPix;
+                            default:
+                                return MultiOMDictKind::ReducedGG;
+                        }
                     case Repres::LL:
                         return MultiOMDictKind::RegularLL;
                     case Repres::SH:
