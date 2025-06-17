@@ -22,52 +22,22 @@
 namespace multio::datamod {
 
 
-std::tuple<GridType, std::string> gridTypeAndScopeFromGrid(const std::string& grid) {
-    if (grid.empty()) {
-        throw datamod::DataModellingException("empty grid", Here());
-    }
-    using Ret = std::tuple<GridType, std::string>;
-
-    auto fail = [&](auto loc) { return DataModellingException(std::string("invalid grid: ") + grid, std::move(loc)); };
-
-    auto handleHEALPix = [&]() -> Ret { return Ret{GridType::HEALPix, std::string("geo-") + grid + std::string("-")}; };
-    auto handleGG = [&]() -> Ret { return Ret{GridType::GG, std::string("geo-") + grid + std::string("-")}; };
-    auto handleLL = [&]() -> Ret { return Ret{GridType::LL, std::string("geo-") + grid + std::string("-")}; };
-
-    switch (grid[0]) {
-        case 'H':
-            return handleHEALPix();
-        case 'F':
-            return handleGG();
-        case 'O':
-            return handleGG();
-        case 'N':
-            if (grid.rfind("x") == std::string::npos) {
-                return handleGG();
-            }
-            else {
-                return handleLL();
-            }
-        default:
-            throw fail(Here());
-    }
-    throw fail(Here());
-}
-
-
-namespace mapper {
-
-std::string TimeDurationMapper::write(const TimeDuration& td) const noexcept {
+std::string WriteSpec<TimeDuration>::write(const TimeDuration& td) noexcept {
     return std::visit(
-        eckit::Overloaded{[&](const std::chrono::hours& h) { return std::to_string(h.count()) + std::string("h"); },
+        eckit::Overloaded{[&](const std::chrono::hours& h) {
+                              // The fortran encoder currently don't accepts units - after that we should remove them
+                              // quickly return std::to_string(h.count()) + std::string("h");
+                              return std::to_string(h.count());
+                          },
                           [&](const std::chrono::seconds& s) { return std::to_string(s.count()) + std::string("s"); }},
         td);
 }
 
-TimeDuration TimeDurationMapper::read(std::int64_t hours) const noexcept {
+
+TimeDuration ReadSpec<TimeDuration>::read(std::int64_t hours) noexcept {
     return std::chrono::hours{hours};
 }
-TimeDuration TimeDurationMapper::read(const std::string& val) const {
+TimeDuration ReadSpec<TimeDuration>::read(const std::string& val) {
     // TODO align these units with util/DateTime.h ??
     static const std::regex timeRegex(R"((\d+)([hs]?))");  // number + optional 'h' or 's'
 
@@ -95,16 +65,81 @@ TimeDuration TimeDurationMapper::read(const std::string& val) const {
 }
 
 
-std::int64_t ParamMapper::read(std::int64_t v) const noexcept {
+std::string WriteSpec<Repres>::write(Repres v) noexcept {
+    switch (v) {
+        case Repres::GG:
+            return "gg";
+        case Repres::HEALPix:
+            return "HEALPix";
+        case Repres::LL:
+            return "ll";
+        case Repres::SH:
+            return "sh";
+        default:
+            throw DataModellingException("WriteSpec<Repres>::write: Unexpected value for Repres", Here());
+    }
+}
+
+Repres represFromGrid(const std::string& grid) {
+    if (grid.empty()) {
+        throw datamod::DataModellingException("represFromGrid: empty grid", Here());
+    }
+
+    switch (grid[0]) {
+        case 'F':
+        case 'O':
+            return Repres::GG;
+        case 'H':
+            return Repres::HEALPix;
+        case 'N':
+            if (grid.rfind("x") == std::string::npos) {
+                return Repres::GG;
+            }
+            else {
+                return Repres::LL;
+            }
+        default:
+            throw DataModellingException(std::string("represFromGrid: invalid grid: ") + grid, Here());
+    }
+}
+
+Repres ReadSpec<Repres>::read(const std::string& val) {
+    if (val == "gg") {
+        return Repres::GG;
+    }
+    if (val == "ll") {
+        return Repres::LL;
+    }
+    if (val == "sh") {
+        return Repres::SH;
+    }
+    throw DataModellingException(std::string("RepresMapper::read Unknown value for Repres: ") + val, Here());
+}
+
+
+namespace mapper {
+
+std::int64_t ParamMapper::read(std::int64_t v) noexcept {
     return v;
 }
-std::int64_t ParamMapper::write(std::int64_t v) const noexcept {
+std::int64_t ParamMapper::write(std::int64_t v) noexcept {
     return v;
 }
-std::int64_t ParamMapper::read(const std::string& str) const {
+std::int64_t ParamMapper::read(const std::string& str) {
     return metkit::Param(str).paramId();
 }
 
 }  // namespace mapper
+
+std::ostream& operator<<(std::ostream& os, const Repres& t) {
+    os << Writer<Repres>::write(t);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const TimeDuration& t) {
+    os << Writer<TimeDuration>::write(t);
+    return os;
+}
+
 
 }  // namespace multio::datamod

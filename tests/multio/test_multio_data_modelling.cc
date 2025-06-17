@@ -14,6 +14,7 @@
 #include "eckit/testing/Test.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
+#include "multio/datamod/ReaderWriter.h"
 
 
 enum class TestKeys : std::uint64_t
@@ -29,11 +30,11 @@ namespace multio::datamod {
 MULTIO_KEY_SET_DESCRIPTION(TestKeys,  //
                            "test",    //
                                       //
-                           describeKeyValue<TestKeys::Key1, std::string>("key1"),
-                           describeKeyValue<TestKeys::Key2, double>("key2"),
-                           describeKeyValue<TestKeys::Key3, std::int64_t>("key3"),
+                           describeKeyValue<TestKeys::Key1, std::string, KVTag::Required>("key1"),
+                           describeKeyValue<TestKeys::Key2, double, KVTag::Required>("key2"),
+                           describeKeyValue<TestKeys::Key3, std::int64_t, KVTag::Required>("key3"),
                            describeKeyValue<TestKeys::Key4, std::int64_t, KVTag::Optional>("key4"),
-                           describeKeyValue<TestKeys::Key5, bool>("key5"));
+                           describeKeyValue<TestKeys::Key5, bool, KVTag::Required>("key5"));
 }
 
 
@@ -50,8 +51,9 @@ struct multio::datamod::KeySetDescription<TestKeys2> {
 
     static const auto& keys() {
         using namespace multio::datamod;
-        static const auto keys = std::make_tuple(describeKeyValue<TestKeys2::Key1, std::string>("key1"),
-                                                 describeKeyValue<TestKeys2::Key2, double>("key2"));
+        static const auto keys
+            = std::make_tuple(describeKeyValue<TestKeys2::Key1, std::string, KVTag::Required>("key1"),
+                              describeKeyValue<TestKeys2::Key2, double, KVTag::Required>("key2"));
         return keys;
     }
 };
@@ -97,6 +99,30 @@ using multio::message::Metadata;
 // Index of the KeyValue variants used to compare
 constexpr std::size_t VARIANT_VAL_INDEX = 1;
 constexpr std::size_t VARIANT_REF_INDEX = 2;
+
+CASE("Test static asserts") {
+    // Test some static asserts
+    using namespace datamod;
+    static_assert(HasRead_v<Reader<std::string, DefaultMapper>, std::string>);
+    static_assert(HasRead_v<Reader<std::string, DefaultMapper>, std::string&>);
+    static_assert(HasRead_v<Reader<std::string, DefaultMapper>, const std::string&>);
+    static_assert(HasRead_v<Reader<std::string, DefaultMapper>, std::string&&>);
+
+    static_assert(HasRead_v<Reader<bool, DefaultMapper>, bool>);
+    static_assert(HasRead_v<Reader<bool, DefaultMapper>, bool&>);
+    static_assert(HasRead_v<Reader<bool, DefaultMapper>, const bool&>);
+    static_assert(HasRead_v<Reader<bool, DefaultMapper>, bool&&>);
+
+    static_assert(HasRead_v<Reader<double, DefaultMapper>, double>);
+    static_assert(HasRead_v<Reader<double, DefaultMapper>, double&>);
+    static_assert(HasRead_v<Reader<double, DefaultMapper>, const double&>);
+    static_assert(HasRead_v<Reader<double, DefaultMapper>, double&&>);
+
+    static_assert(HasRead_v<Reader<std::int64_t, DefaultMapper>, std::int64_t>);
+    static_assert(HasRead_v<Reader<std::int64_t, DefaultMapper>, std::int64_t&>);
+    static_assert(HasRead_v<Reader<std::int64_t, DefaultMapper>, std::int64_t&>);
+    static_assert(HasRead_v<Reader<std::int64_t, DefaultMapper>, std::int64_t&&>);
+};
 
 
 CASE("Test reify single description") {

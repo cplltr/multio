@@ -68,7 +68,7 @@ void EncodeMtg2::executeImpl(Message msg) {
         write(miscKeys, par);
 
         // Handle geometry
-        withScopedGeometryKeySet(marsKeys, [&](GridType gridType, std::string scope, auto geoKeySet) {
+        withScopedGeometryKeySet(marsKeys, [&](Repres repres, std::string scope, auto geoKeySet) {
             const auto& grid = key<MarsKeys::GRID>(marsKeys);
             if (!grid.isMissing()) {
                 const auto& global = message::Parametrization::instance().get();
@@ -79,17 +79,17 @@ void EncodeMtg2::executeImpl(Message msg) {
             }
 
             MultiOMDict geom{([&]() {
-                switch (gridType) {
-                    case GridType::GG:
+                switch (repres) {
+                    case Repres::GG:
                         return MultiOMDictKind::ReducedGG;
-                    case GridType::HEALPix:
+                    case Repres::HEALPix:
                         return MultiOMDictKind::HEALPix;
-                    case GridType::LL:
+                    case Repres::LL:
                         return MultiOMDictKind::RegularLL;
-                    case GridType::SH:
+                    case Repres::SH:
                         return MultiOMDictKind::SH;
                 }
-                throw EncodeMtg2Exception("unkown gridType", Here());
+                throw EncodeMtg2Exception("unkown repres", Here());
             })()};
 
             auto geoKeys = read(geoKeySet, md);

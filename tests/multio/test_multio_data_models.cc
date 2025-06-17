@@ -55,21 +55,46 @@ multio::message::Metadata makeMarsMetadata() {
                                      {"truncation", 399}};
 }
 
+multio::message::Metadata makeValidMarsMetadata() {
+    auto md = makeMarsMetadata();
+    md.erase("truncation");
+    return md;
+}
+
 
 CASE("Test reading MARS keys from metadata") {
     using namespace multio::datamod;
 
-    auto marsKeys = read(keySet<MarsKeys>(), makeMarsMetadata());
+    {
+        // Expect error because of having grid & truncation defined at the same time
+        EXPECT_THROWS(read(keySet<MarsKeys>(), makeMarsMetadata()));
+    }
 
-    // TODO elaborate - should check inconsistences
-    EXPECT_NO_THROW(validate(marsKeys));
+    {
+        auto md = makeMarsMetadata();
+        md.erase("truncation");
+        EXPECT_NO_THROW(read(keySet<MarsKeys>(), md));
+    }
+
+    {
+        auto md = makeMarsMetadata();
+        md.erase("grid");
+        EXPECT_NO_THROW(read(keySet<MarsKeys>(), md));
+    }
+
+    {
+        auto md = makeMarsMetadata();
+        md.erase("truncation");
+        md.erase("grid");
+        EXPECT_THROWS(read(keySet<MarsKeys>(), md));
+    }
 };
 
 
 CASE("Test encoder hashes") {
     using namespace multio::datamod;
 
-    auto marsKeys = read(keySet<MarsKeys>(), makeMarsMetadata());
+    auto marsKeys = read(keySet<MarsKeys>(), makeValidMarsMetadata());
     acquire(marsKeys);
 
     // Create copies

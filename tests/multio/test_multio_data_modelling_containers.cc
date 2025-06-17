@@ -42,11 +42,11 @@ namespace multio::datamod {
 MULTIO_KEY_SET_DESCRIPTION(TestKeys,  //
                            "test",    //
                                       //
-                           describeKeyValue<TestKeys::Key1, std::string>("key1"),
-                           describeKeyValue<TestKeys::Key2, double>("key2"),
-                           describeKeyValue<TestKeys::Key3, std::int64_t>("key3"),
+                           describeKeyValue<TestKeys::Key1, std::string, KVTag::Required>("key1"),
+                           describeKeyValue<TestKeys::Key2, double, KVTag::Required>("key2"),
+                           describeKeyValue<TestKeys::Key3, std::int64_t, KVTag::Required>("key3"),
                            describeKeyValue<TestKeys::Key4, std::int64_t, KVTag::Optional>("key4"),
-                           describeKeyValue<TestKeys::Key5, bool>("key5"),
+                           describeKeyValue<TestKeys::Key5, bool, KVTag::Required>("key5"),
                            describeKeyValue<TestKeys::Key6, std::vector<double>, KVTag::Optional>(
                                "key6"));  // Using arrays with local configuration can be very dangerous...
 }

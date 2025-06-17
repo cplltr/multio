@@ -16,8 +16,12 @@
 
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/DataModellingException.h"
+#include "multio/datamod/ReaderWriter.h"
+#include "multio/util/TypeTraits.h"
+#include "multio/util/VariantHelpers.h"
 
 #include <chrono>
+#include <sstream>
 #include <string>
 
 
@@ -29,45 +33,78 @@ namespace multio::datamod {
 using TimeDuration = std::variant<std::chrono::hours, std::chrono::seconds>;
 
 
+enum class Repres : std::size_t
+{
+    GG,
+    LL,
+    SH,
+    HEALPix          // We added it here because we use repres as an intermediate type. Officially healpix is not mapped to any of the others...
+};
+
+std::ostream& operator<<(std::ostream&, const TimeDuration&);
+std::ostream& operator<<(std::ostream&, const Repres&);
+}  // namespace multio::datamod
+
+
+namespace multio::util {
+template <>
+struct TypeToString<datamod::Repres> {
+    std::string operator()() const { return "datamod::Repres"; };
+};
+}  // namespace multio::util
+
+namespace multio::datamod {
+
+template <>
+struct WriteSpec<TimeDuration> {
+    static std::string write(const TimeDuration&) noexcept;
+};
+
+template <>
+struct ReadSpec<TimeDuration> {
+    static TimeDuration read(std::int64_t hours) noexcept;
+    static TimeDuration read(const std::string& s);
+};
+
+
+template <>
+struct WriteSpec<Repres> {
+    static std::string write(Repres) noexcept;
+};
+
+template <>
+struct ReadSpec<Repres> {
+    static inline Repres read(Repres v) noexcept { return v; };
+    static Repres read(const std::string& s);
+};
+
+
+Repres represFromGrid(const std::string& grid);
+
+
 namespace mapper {
-struct TimeDurationMapper {
-    std::string write(const TimeDuration&) const noexcept;
 
-
-    template <typename T, std::enable_if_t<!std::is_same_v<std::decay_t<T>, std::string>, bool> = true>
-    TimeDuration read(T&& t) const {
-        throw DataModellingException("TimeDuration must be an int or string, not " + util::typeToString<T>(), Here());
-    }
-
-    TimeDuration read(std::int64_t hours) const noexcept;
-    TimeDuration read(const std::string& s) const;
-};
+// TODO Discuss ith Param should get it's own type ParamId (wrapping an int..)
+// Currently `metkit::Param` is used to create a paramId from string
+// There is also the existing type `metkit::ParamID` which (unfortunately) can not be constructed from an eisting int.
 struct ParamMapper {
-    std::int64_t write(std::int64_t) const noexcept;
-    std::int64_t read(std::int64_t) const noexcept;
-    std::int64_t read(const std::string&) const;
+    static std::int64_t write(std::int64_t) noexcept;
+    static std::int64_t read(std::int64_t) noexcept;
+    static std::int64_t read(const std::string&);
+};
 
-    template <typename T, std::enable_if_t<!std::is_same_v<std::decay_t<T>, std::string>, bool> = true>
-    std::int64_t read(T&& t) const {
-        throw DataModellingException("Param must be an int or string, not " + util::typeToString<T>(), Here());
-    }
-};
 struct IntToBoolMapper {
-    inline bool write(bool v) const noexcept { return v; };
-    inline bool read(bool v) const noexcept { return v; };
-    inline bool read(std::int64_t v) const { return v > 0; };
-    template <typename T>
-    bool read(T&& t) const {
-        throw DataModellingException("Value must be an int or bool, not " + util::typeToString<T>(), Here());
-    }
+    static inline bool write(bool v) noexcept { return v; };
+    static inline bool read(bool v) noexcept { return v; };
+    static inline bool read(std::int64_t v) { return v > 0; };
 };
+
 }  // namespace mapper
 
 
 //-----------------------------------------------------------------------------
 // Mars Keys
 //-----------------------------------------------------------------------------
-
 
 enum class MarsKeys : std::uint64_t
 {
@@ -96,6 +133,7 @@ enum class MarsKeys : std::uint64_t
     HDATE,
     GRID,
     TRUNCATION,
+    REPRES
 };
 
 
@@ -107,7 +145,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     describeKeyValue<MarsKeys::STREAM, std::string, KVTag::Required>("stream"),
     describeKeyValue<MarsKeys::TYPE, std::string, KVTag::Required>("type"),
     describeKeyValue<MarsKeys::CLASS, std::string, KVTag::Required>("class"),
-    describeKeyValue<MarsKeys::PARAM, std::int64_t, KVTag::Required>("param", mapper::ParamMapper{}),
+    describeKeyValue<MarsKeys::PARAM, std::int64_t, KVTag::Required, mapper::ParamMapper>("param"),
     describeKeyValue<MarsKeys::ORIGIN, std::string, KVTag::Defaulted>("origin").withDefault("ecmf"),
     describeKeyValue<MarsKeys::ANOFFSET, std::int64_t, KVTag::Optional>("anoffset"),
     describeKeyValue<MarsKeys::PACKING, std::string, KVTag::Optional>("packing"),
@@ -123,11 +161,12 @@ MULTIO_KEY_SET_DESCRIPTION(
     describeKeyValue<MarsKeys::FREQUENCY, std::int64_t, KVTag::Optional>("frequency"),
     describeKeyValue<MarsKeys::DATE, std::int64_t, KVTag::Required>("date"),
     describeKeyValue<MarsKeys::TIME, std::int64_t, KVTag::Required>("time"),
-    describeKeyValue<MarsKeys::STEP, TimeDuration, KVTag::Required>("step", mapper::TimeDurationMapper{}),
-    describeKeyValue<MarsKeys::TIMEPROC, TimeDuration, KVTag::Optional>("timeproc", mapper::TimeDurationMapper{}),
+    describeKeyValue<MarsKeys::STEP, TimeDuration, KVTag::Required>("step"),
+    describeKeyValue<MarsKeys::TIMEPROC, TimeDuration, KVTag::Optional>("timeproc"),
     describeKeyValue<MarsKeys::HDATE, std::int64_t, KVTag::Optional>("hdate"),
     describeKeyValue<MarsKeys::GRID, std::string, KVTag::Optional>("grid"),
-    describeKeyValue<MarsKeys::TRUNCATION, std::int64_t, KVTag::Optional>("truncation"));
+    describeKeyValue<MarsKeys::TRUNCATION, std::int64_t, KVTag::Optional>("truncation"),
+    describeKeyValue<MarsKeys::REPRES, Repres, KVTag::Defaulted>("repres"));
 
 using MarsKeySet = KeySet<MarsKeys>;
 using MarsKeyValueSet = KeyValueSet<MarsKeySet>;
@@ -137,6 +176,45 @@ template <>
 struct KeySetAlter<MarsKeySet> {
     static void alter(MarsKeyValueSet& mars) {
         // TODO setting conditional defaults and perform validation
+        const auto& grid = key<MarsKeys::GRID>(mars);
+        const auto& trunc = key<MarsKeys::TRUNCATION>(mars);
+        auto& repres = key<MarsKeys::REPRES>(mars);
+
+        if (grid.isMissing() && trunc.isMissing()) {
+            std::ostringstream oss;
+            oss << "Either mars key 'grid' (x)or 'truncation' must to be given to describe geometry - both are "
+                   "missing: "
+                << mars;
+            throw DataModellingException(oss.str(), Here());
+        }
+        if (!grid.isMissing() && !trunc.isMissing()) {
+            std::ostringstream oss;
+            oss << "Either mars key 'grid' or 'truncation' needs to be given to describe geometry - both ore given: "
+                << mars;
+            throw DataModellingException(oss.str(), Here());
+        }
+
+        if (!grid.isMissing()) {
+            auto detRepres = represFromGrid(grid.get());
+
+            if (!repres.isMissing() && (detRepres != repres.get())) {
+                std::ostringstream oss;
+                oss << "Passed value for repres is " << repres.get() << " but derived value  " << detRepres
+                    << " from grid " << grid.get();
+                throw DataModellingException(oss.str(), Here());
+            }
+            repres.set(detRepres);
+        }
+        else if (!trunc.isMissing()) {
+            auto detRepres = Repres::SH;
+            if (!repres.isMissing() && (detRepres != repres.get())) {
+                std::ostringstream oss;
+                oss << "Passed value for repres is " << repres.get() << " but derived value  " << detRepres
+                    << " from truncation " << std::to_string(trunc.get());
+                throw DataModellingException(oss.str(), Here());
+            }
+            repres.set(detRepres);
+        }
     }
 };
 
@@ -219,12 +297,13 @@ MULTIO_KEY_SET_DESCRIPTION(
     describeKeyValue<MiscKeys::GeneratingProcessIdentifier, std::int64_t, KVTag::Optional>(
         "generatingProcessIdentifier"),
     describeKeyValue<MiscKeys::Typeofprocesseddata, std::int64_t, KVTag::Optional>("typeofprocesseddata"),
-    describeKeyValue<MiscKeys::EncodeStepZero, bool, KVTag::Optional>("encodeStepZero", mapper::IntToBoolMapper{}),
+    describeKeyValue<MiscKeys::EncodeStepZero, bool, KVTag::Optional, mapper::IntToBoolMapper>("encodeStepZero"),
     describeKeyValue<MiscKeys::InitialStep, std::int64_t, KVTag::Defaulted>("initialStep").withDefault(0),
     describeKeyValue<MiscKeys::LengthOfTimeRange, std::int64_t, KVTag::Optional>("lengthOfTimeRange"),
     describeKeyValue<MiscKeys::LengthOfTimeStep, std::int64_t, KVTag::Optional>("lengthOfTimeStep"),
     describeKeyValue<MiscKeys::LengthOfTimeRangeInSeconds, std::int64_t, KVTag::Optional>("lengthOfTimeRangeInSeconds"),
-    describeKeyValue<MiscKeys::LengthOfTimeStepInSeconds, std::int64_t, KVTag::Defaulted>("lengthOfTimeStepInSeconds").withDefault(3600),
+    describeKeyValue<MiscKeys::LengthOfTimeStepInSeconds, std::int64_t, KVTag::Defaulted>("lengthOfTimeStepInSeconds")
+        .withDefault(3600),
     describeKeyValue<MiscKeys::ValuesScaleFactor, double, KVTag::Optional>("valuesScaleFactor"),
     describeKeyValue<MiscKeys::Pv, std::vector<double>, KVTag::Optional>("pv"),
     describeKeyValue<MiscKeys::NumberOfMissingValues, std::int64_t, KVTag::Optional>("numberOfMissingValues"),
@@ -271,10 +350,10 @@ MULTIO_KEY_SET_DESCRIPTION(GeoGG,     //
                            "geo-gg",  //
                                       //
                            describeKeyValue<GeoGG::TruncateDegrees, std::int64_t, KVTag::Optional>("truncateDegrees"),
-                           describeKeyValue<GeoGG::NumberOfPointsAlongAMeridian, std::int64_t, KVTag::Required>(
+                           describeKeyValue<GeoGG::NumberOfPointsAlongAMeridian, std::int64_t, KVTag::Optional>(
                                "numberOfPointsAlongAMeridian"),
                            describeKeyValue<GeoGG::NumberOfParallelsBetweenAPoleAndTheEquator, std::int64_t,
-                                            KVTag::Optional>("numberOfParallelsBetweenAPoleAndTheEquator"),
+                                            KVTag::Required>("numberOfParallelsBetweenAPoleAndTheEquator"),
                            describeKeyValue<GeoGG::LatitudeOfFirstGridPointInDegrees, double, KVTag::Required>(
                                "latitudeOfFirstGridPointInDegrees"),
                            describeKeyValue<GeoGG::LongitudeOfFirstGridPointInDegrees, double, KVTag::Required>(
@@ -344,55 +423,38 @@ MULTIO_KEY_SET_DESCRIPTION(GeoHEALPix,     //
 // Evaluate geometry from mars
 //-----------------------------------------------------------------------------
 
-enum class GridType : std::size_t
-{
-    GG,
-    LL,
-    SH,
-    HEALPix
-};
-
-std::tuple<GridType, std::string> gridTypeAndScopeFromGrid(const std::string& grid);
-
 template <typename KVS, typename Func>
 decltype(auto) withScopedGeometryKeySet(const KVS& kvs, Func&& func) {
     const auto& grid = key<MarsKeys::GRID>(kvs);
     const auto& trunc = key<MarsKeys::TRUNCATION>(kvs);
+    const auto& repres = key<MarsKeys::REPRES>(kvs);
 
-    if (grid.isMissing() && trunc.isMissing()) {
-        throw DataModellingException(
-            "Either mars key 'grid' (x)or 'truncation' must to be given to describe geometry - both are missing",
-            Here());
-    }
-    if (!grid.isMissing() && !trunc.isMissing()) {
-        throw DataModellingException(
-            "Either mars key 'grid' or 'truncation' needs to be given to describe geometry - both ore given", Here());
-    }
-
-    if (!grid.isMissing()) {
-        auto [gridType, scope] = gridTypeAndScopeFromGrid(grid.get());
-
-        switch (gridType) {
-            case GridType::GG: {
-                std::forward<Func>(func)(GridType::GG, scope, keySet<GeoGG>().scoped(scope));
-                return;
-            }
-            case GridType::HEALPix: {
-                std::forward<Func>(func)(GridType::HEALPix, scope, keySet<GeoHEALPix>().scoped(scope));
-                return;
-            }
-            // TODO uncomment once there are keys specified...
-            // case GridType::LL: {
-            //     std::forward<Func>(func)(GridType::LL, keySet<GeoLL>().scoped(std::move(scope)));
-            //     return;
-            // }
-            default:
-                throw DataModellingException("Unhandled gridType", Here());
+    switch (repres.get()) {
+        case Repres::GG: {
+            std::string scope = std::string("geo-") + grid.get();
+            std::forward<Func>(func)(Repres::GG, scope, keySet<GeoGG>().scoped(scope));
+            return;
+        case Repres::HEALPix: {
+            std::string scope = std::string("geo-") + grid.get();
+            std::forward<Func>(func)(Repres::HEALPix, scope, keySet<GeoHEALPix>().scoped(scope));
+            return;
         }
-    }
-    else if (!trunc.isMissing()) {
-        std::string scope = std::string("geo-TCO") + std::to_string(trunc.get());
-        std::forward<Func>(func)(GridType::SH, scope, keySet<GeoSH>().scoped(scope));
+        }
+        case Repres::SH: {
+            std::string scope = std::string("geo-TCO") + std::to_string(trunc.get());
+            std::forward<Func>(func)(Repres::SH, scope, keySet<GeoSH>().scoped(scope));
+            return;
+        }
+        // TODO uncomment once there are keys specified...
+        // case Repres::GG: {
+        //     std::string scope = std::string("geo-") + grid.get();
+        //     std::forward<Func>(func)(Repres::GG, scope, keySet<GeoGG>().scoped(scope));
+        //     return;
+        // }
+        default:
+            throw DataModellingException(
+                std::string("withScopedGeometryKeySet: Unhandled repres ") + Writer<Repres>::write(repres.get()),
+                Here());
     }
 }
 

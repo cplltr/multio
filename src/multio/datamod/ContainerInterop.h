@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include "eckit/config/LocalConfiguration.h"
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/DataModellingException.h"
@@ -37,36 +38,42 @@ struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseM
                   (IsKeyValueDescription_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
               = true>
     static decltype(auto) getByRef(const KVD& kvd, MD&& md) {
-        if constexpr (KVD::hasMapper) {
-            if (auto search = std::forward<MD>(md).find(kvd.key); search != md.end()) {
-                return toKeyValueRef(
-                    kvd, search->second.visit([&](auto&& v) { return kvd.mapper.read(std::forward<decltype(v)>(v)); }));
-            }
-            if constexpr (KVD::tag == KVTag::Required) {
-                std::ostringstream oss;
-                oss << "Missing required key " << kvd.describe() << " in metadata " << md << std::endl;
-                throw DataModellingException(oss.str(), Here());
-            }
-            return toMissingOrDefaultValue(kvd);
-        }
-        else {
-            if (auto search = std::forward<MD>(md).find(kvd.key); search != md.end()) {
-                // If container is not an lvalue we can move from
-                if constexpr (!std::is_lvalue_reference_v<MD>) {
-                    return toKeyValueRef(kvd, std::move(search->second.template get<typename KVD::ValueType>()));
+        if (auto search = std::forward<MD>(md).find(kvd.key); search != md.end()) {
+            auto visitor = [&](auto&& v) {
+                if constexpr (std::is_same_v<message::Null, std::decay_t<decltype(v)>>) {
+                    if constexpr (KVD::tag == KVTag::Required) {
+                        std::ostringstream oss;
+                        oss << "Required Key " << kvd.describe() << " is null in metadata " << md << std::endl;
+                        throw DataModellingException(oss.str(), Here());
+                    }
+                    return toMissingOrDefaultValue(kvd);
+                }
+                else if constexpr (KVD::template CanCreateFromValue_v<decltype(v)>) {
+                    return toKeyValueRef(kvd, std::forward<decltype(v)>(v));
                 }
                 else {
-                    return toKeyValueRef(kvd, search->second.template get<typename KVD::ValueType>());
+                    std::ostringstream oss;
+                    oss << "Unsupported type " << util::typeToString<std::decay_t<decltype(v)>>() << " for key "
+                        << kvd.describe() << " in metadata: " << md << std::endl;
+                    throw DataModellingException(oss.str(), Here());
                 }
+                return toMissingValue(kvd);  // unreachable
+            };
+
+            // TODO build some helper to conditionally create a move iterator directly....
+            if constexpr (std::is_lvalue_reference_v<MD>) {
+                return search->second.visit(std::move(visitor));
             }
-            if constexpr (KVD::tag == KVTag::Required) {
-                std::ostringstream oss;
-                oss << "Missing required key " << kvd.describe() << " in metadata " << md << std::endl;
-                throw DataModellingException(oss.str(), Here());
+            else {
+                return std::move(search->second).visit(std::move(visitor));
             }
-            return toMissingOrDefaultValue(kvd);
         }
-        return toMissingValue(kvd);  // unreachable - prevent compiler warning
+        if constexpr (KVD::tag == KVTag::Required) {
+            std::ostringstream oss;
+            oss << "Missing required key " << kvd.describe() << " in metadata " << md << std::endl;
+            throw DataModellingException(oss.str(), Here());
+        }
+        return toMissingOrDefaultValue(kvd);
     }
 };
 
@@ -91,15 +98,11 @@ struct KeyValueWriter<message::BaseMetadata> {
               = true>
     static void set(const KVD& kvd, KV_&& kv, MD& md) {
         // TODO think about handling missing value by setting Null ?
-        if constexpr (KVD::hasMapper) {
-            std::forward<KV_>(kv).visit(
-                eckit::Overloaded{[&](MissingValue v) {},
-                                  [&](auto&& v) { md.set(kvd.key, kvd.mapper.write(std::forward<decltype(v)>(v))); }});
-        }
-        else {
-            std::forward<KV_>(kv).visit(eckit::Overloaded{
-                [&](MissingValue v) {}, [&](auto&& v) { md.set(kvd.key, std::forward<decltype(v)>(v)); }});
-        }
+        std::forward<KV_>(kv).visit(eckit::Overloaded{
+            [&](MissingValue v) {},
+            [&](auto&& v) {
+                md.set(kvd.key, KVD::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
+            }});
     }
 };
 
@@ -190,48 +193,29 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
         }
 
 
-        if constexpr (KVD::hasMapper) {
-            return visitNonNullValue(
-                kvd.key, conf,
-                eckit::Overloaded{[&]() {
-                                      std::ostringstream oss;
-                                      oss << "Unsupported value for Key " << kvd.describe()
-                                          << " in configuration: " << conf << std::endl;
-                                      throw DataModellingException(oss.str(), Here());
+        return visitNonNullValue(kvd.key, conf,
+                                 eckit::Overloaded{[&]() {
+                                                       std::ostringstream oss;
+                                                       oss << "Unsupported value for key " << kvd.describe()
+                                                           << " in configuration: " << conf << std::endl;
+                                                       throw DataModellingException(oss.str(), Here());
 
-                                      return toMissingValue(kvd);  // unreachable
-                                  },
-                                  [&](auto tt) {
-                                      using Type = typename std::decay_t<decltype(tt)>::type;
-                                      return toKeyValue(kvd, kvd.mapper.read(getValueByType<Type>(conf, kvd.key)));
-                                  }});
-        }
-        else {
-            return visitNonNullValue(
-                kvd.key, conf,
-                eckit::Overloaded{[&]() {
-                                      std::ostringstream oss;
-                                      oss << "Unsupported value for Key " << kvd.describe()
-                                          << " in configuration: " << conf << std::endl;
-                                      throw DataModellingException(oss.str(), Here());
-
-                                      return toMissingValue(kvd);  // unreachable
-                                  },
-                                  [&](auto tt) {
-                                      using Type = typename std::decay_t<decltype(tt)>::type;
-                                      if constexpr (std::is_same_v<Type, typename KVD::ValueType>) {
-                                          return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key));
-                                      }
-                                      else {
-                                          std::ostringstream oss;
-                                          oss << "Unsupported type " << util::typeToString<Type>() << " for Key "
-                                              << kvd.describe() << " in configuration: " << conf << std::endl;
-                                          throw DataModellingException(oss.str(), Here());
-                                      }
-
-                                      return toMissingValue(kvd);  // unreachable
-                                  }});
-        }
+                                                       return toMissingValue(kvd);  // unreachable
+                                                   },
+                                                   [&](auto tt) {
+                                                       using Type = typename std::decay_t<decltype(tt)>::type;
+                                                       if constexpr (KVD::template CanCreateFromValue_v<Type>) {
+                                                           return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key));
+                                                       }
+                                                       else {
+                                                           std::ostringstream oss;
+                                                           oss << "Unsupported type " << util::typeToString<Type>()
+                                                               << " for key " << kvd.describe()
+                                                               << " in configuration: " << conf << std::endl;
+                                                           throw DataModellingException(oss.str(), Here());
+                                                       }
+                                                       return toMissingValue(kvd);  // unreachable
+                                                   }});
 
 
         return toMissingValue(kvd);  // unreachable - prevent compiler warning
@@ -260,16 +244,11 @@ struct KeyValueWriter<eckit::LocalConfiguration> {
               = true>
     static void set(const KVD& kvd, KV_&& kv, LConf& md) {
         using KV = std::decay_t<KV_>;
-        // TODO think about handling missing value by setting Null ?
-        if constexpr (KVD::hasMapper) {
-            std::forward<KV_>(kv).visit(
-                eckit::Overloaded{[&](MissingValue v) {},
-                                  [&](auto&& v) { md.set(kvd.key, kvd.mapper.write(std::forward<decltype(v)>(v))); }});
-        }
-        else {
-            std::forward<KV_>(kv).visit(eckit::Overloaded{
-                [&](MissingValue v) {}, [&](auto&& v) { md.set(kvd.key, std::forward<decltype(v)>(v)); }});
-        }
+        std::forward<KV_>(kv).visit(eckit::Overloaded{
+            [&](MissingValue v) {},
+            [&](auto&& v) {
+                md.set(kvd.key, KVD::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
+            }});
     }
 };
 

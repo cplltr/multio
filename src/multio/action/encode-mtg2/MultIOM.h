@@ -119,15 +119,11 @@ struct datamod::KeyValueWriter<action::MultiOMDict> {
               = true>
     static void set(const KVD& kvd, KV_&& kv, action::MultiOMDict& md) {
         using KV = std::decay_t<KV_>;
-        if constexpr (KVD::hasMapper) {
-            std::forward<KV_>(kv).visit(
-                eckit::Overloaded{[&](MissingValue v) {},
-                                  [&](auto&& v) { md.set(kvd.key, kvd.mapper.write(std::forward<decltype(v)>(v))); }});
-        }
-        else {
-            std::forward<KV_>(kv).visit(eckit::Overloaded{
-                [&](MissingValue v) {}, [&](auto&& v) { md.set(kvd.key, std::forward<decltype(v)>(v)); }});
-        }
+        std::forward<KV_>(kv).visit(eckit::Overloaded{
+            [&](MissingValue v) {},
+            [&](auto&& v) {
+                md.set(kvd.key, KVD::template write<action::MultiOMDict>(std::forward<decltype(v)>(v)));
+            }});
     }
 };
 

@@ -143,6 +143,7 @@ list( APPEND multio_message_srcs
 )
 
 list( APPEND multio_datamod_srcs
+    datamod/ReaderWriter.h
     datamod/DataModelling.h
     datamod/DataModellingException.cc
     datamod/DataModellingException.h

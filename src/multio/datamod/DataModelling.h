@@ -18,15 +18,67 @@
 #include <type_traits>
 #include "eckit/utils/Overloaded.h"
 #include "multio/datamod/DataModellingException.h"
+#include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
 #include "multio/util/PrehashedKey.h"
 #include "multio/util/TypeTraits.h"
 
+// TLDR:
+// Use enum tagged tuples instead of struct/classes to describe product types for incoming metadata model or
+// configuration to generate parsers/validators, emitters, printers etc.....
+//
+// # Why: C++ is lacking compile time reflective features.
+//
+// MultIO is a lot of glue code that needs to handle various set of keys (data models) for
+//   * validating and specifying expected metadata
+//   * configuration for a lot of actions
+//   * interfacing metadata & configuration to different libraries
+//
+// *Metadata*: Subset of mars keys, grib specific keys & custom data models to sort things ous - unfortunately even
+// after years we can not define a limited set of classes that are reused among packages...
+//
+// *Configuration*: In the end
+// a big YAML file is describing a plan. It should be possible to describe and verify the plan "easily". Often
+// configuration contains metadata keys or content for third-party configuration/metadata
+//
+// Advantage:
+//  * The mechanism implies some constraints and requirements on what we need to describe. Then we generate a lot of
+//  code.
+//  * Exchanging interfacing types (i.e. `eckit::LocalConfiguration`) is simple
+// Disadvantage:
+//  * Some error messages can be ugly.
+//  * Need to use some of the features here
+//
+// Personal comment (Philipp Geier): After two years of resisting going that way, I'm bored of writing the same glue
+// code again and again.
+//   With generated code, validation and error messages are much more consistent.
+//   On the long run it should allow focussing more on essential things in the actions (execution & handling state...)
+//
+//
+// # Essentials & How to migrate away from this:
+//
+// The keysets described through this mechanism already contain the most important things:
+//   * keys (stringified)
+//   * types
+//   * defaults
+//   * mappers
+//   * initialization
+//
+// Type mappers & initialization can be natually described through `struct` and `classes` - but may require creating
+// more types for specific keys. Defaults can also be implied explicitly in the code (it's just not organized then). For
+// interfacing with other containers (metadata, configuration, third-party...) specialized code has to be written,
+// mostly because all members need to be iterated or accessed. This is the most errorprone & heavyweighted part when a
+// lot of keys are involved, because it involves a lot of repetition. Suggestion: At least provide a `forEach` function
+// that iterates all members with a descriptive type.
+//
+//
+// # Content
+//
 // This code aims to provide a mechanims to effectively describe a set of key value pairs  with
 //   * a type
 //   * name (string representation)
 //   * possible mappers (to do conversions or checks)
-//   * tags (currently if a key is required or optional)
+//   * tags (if a key is required, defaulted or optional)
 //   * scope (for a whole key set)
 //
 // The advantage of this mechanism is that we get a behaviour similar to complie-time reflexion - meaning we get
@@ -60,11 +112,7 @@
 // on a `KeyValueSet`.
 //
 // TBD:
-//  * There is a experimental `validate` function which is ment to be extended in the future.
-//  * add (default) validation/initalization to KeySets that can post process across keys or throw on inconsistencies
-//  * move to data/Modelling.h and mars keys to data/Models.h
-//  * implement KeyValueReader/KeyValueWriter for eckit::LocalConfiguration and use keysets to parse and validate action
-//  configurations
+//  * Clean up some functions; reorganize reify, read, write function....
 
 
 namespace multio::datamod {
@@ -95,44 +143,30 @@ std::string toString(KVTag_ t) {
 }
 
 
-struct NoMapper {};
-
-template <auto id, typename ValueType, KVTag tag = KVTag::Required, typename Mapper = NoMapper>
-struct KeyValueDescription;
-
-
-template <auto id_, typename ValueType_, KVTag tag_, typename Mapper_>
+template <auto id_, typename ValueType_, KVTag tag_ = KVTag::Required, typename Mapper_ = DefaultMapper>
 struct KeyValueDescription {
     using KeyType = util::PrehashedKey<std::string>;
     using ValueType = ValueType_;
     using Mapper = Mapper_;
     using This = KeyValueDescription<id_, ValueType_, tag_, Mapper_>;
 
-    KeyType key;
-    Mapper mapper;
-    std::optional<ValueType> defaultValue;
-    std::optional<std::string> description;  // TODO Use description to pass descriptive text
-
     static const auto id = id_;
     static constexpr KVTag tag = tag_;
-    static constexpr bool hasMapper = !std::is_same_v<Mapper_, NoMapper>;
 
-    template <KVTag newTag>
-    constexpr KeyValueDescription<id_, ValueType_, newTag, Mapper> withTag() const {
-        if constexpr (newTag == tag) {
-            return *this;
-        }
-        else {
-            return KeyValueDescription<id_, ValueType_, newTag, Mapper>{key, mapper};
-        }
-    }
+    template <typename V>
+    inline static constexpr bool CanCreateFromValue_v = HasRead_v<Reader<ValueType, Mapper>, V>;
+
+    // Members
+    KeyType key;
+    std::optional<ValueType> defaultValue;
+
 
     operator const KeyType&() const { return key; }
     operator const std::string&() const { return key; }
 
     std::string describe() const {
-        return std::string(key) + std::string(" (") + util::typeToString<ValueType>() + toString(tag)
-             + (hasMapper ? std::string(", mapped") : std::string{}) + std::string{")"};
+        return std::string(key) + std::string(" (") + util::typeToString<ValueType>() + std::string(", ")
+             + toString(tag) + std::string{")"};
     }
 
     This& withDefault(ValueType v) {
@@ -140,20 +174,30 @@ struct KeyValueDescription {
         defaultValue = std::move(v);
         return *this;
     }
+
+    // Static methods
+    template <typename Val, std::enable_if_t<CanCreateFromValue_v<Val>, bool> = true>
+    static decltype(auto) read(Val&& val) {
+        return Reader<ValueType, Mapper>::read(std::forward<Val>(val));
+    }
+
+    template <typename Container>
+    static decltype(auto) write(const ValueType& val) {
+        return Writer<ValueType, Container, Mapper>::write(val);
+    }
 };
 
 
 //-----------------------------------------------------------------------------
 
 
-template <auto id_, typename ValueType, KVTag tag = KVTag::Required, typename KeyType>
+template <auto id_, typename ValueType, KVTag tag, typename KeyType>
 KeyValueDescription<id_, ValueType, tag> describeKeyValue(KeyType&& key) {
     return KeyValueDescription<id_, ValueType, tag>{std::forward<KeyType>(key)};
 }
-template <auto id_, typename ValueType, KVTag tag = KVTag::Required, typename KeyType, typename Mapper>
-KeyValueDescription<id_, ValueType, tag, std::decay_t<Mapper>> describeKeyValue(KeyType&& key, Mapper&& mapper) {
-    return KeyValueDescription<id_, ValueType, tag, std::decay_t<Mapper>>{std::forward<KeyType>(key),
-                                                                          std::forward<Mapper>(mapper)};
+template <auto id_, typename ValueType, KVTag tag, typename Mapper, typename KeyType>
+KeyValueDescription<id_, ValueType, tag, Mapper> describeKeyValue(KeyType&& key) {
+    return KeyValueDescription<id_, ValueType, tag, Mapper>{std::forward<KeyType>(key)};
 }
 
 //-----------------------------------------------------------------------------
@@ -199,6 +243,7 @@ template <typename EnumType>
 inline constexpr std::string_view KeySetDescriptionName_v = KeySetDescription<EnumType>::name;
 
 
+// TODO Remove this macro
 #define MULTIO_KEY_SET_DESCRIPTION(EnumName, keySetName, ...)      \
     template <>                                                    \
     struct KeySetDescription<EnumName> {                           \
@@ -337,7 +382,8 @@ public:
         if (customScope) {
             scope_ = KeySetScope::Custom;
             customScopedKeys_ = applyScope(GetKeyPolicy::getKeys(), *customScope);
-        } else {
+        }
+        else {
             scope_ = KeySetScope::Default;
         }
         return static_cast<Derived&>(*this);
@@ -369,7 +415,7 @@ public:
                 return GetKeyPolicy::getKeys();
         }
     }
-    
+
 
 private:
     KeySetScope scope_{KeySetScope::None};
@@ -504,6 +550,7 @@ struct KeyValue {
     Container value;
 
     bool isMissing() const { return std::holds_alternative<MissingValue>(value); }
+    bool has() const { return !std::holds_alternative<MissingValue>(value); }
     bool holdsReference() const { return std::holds_alternative<const ValueType>(value); }
 
     // Function to get the contained value if it's not missing - due to the possibility of containing a reference, only
@@ -523,7 +570,17 @@ struct KeyValue {
 
     void setMissing() noexcept { value = MissingValue{}; }
 
-    template <typename V>
+    template <typename V,
+              std::enable_if_t<
+                  (!std::is_same_v<std::decay_t<V>, MissingValue> && !std::is_same_v<std::decay_t<V>, RefType>), bool>
+              = true>
+    void set(V&& v) noexcept {
+        value = Description::read(std::forward<V>(v));
+    }
+    template <typename V,
+              std::enable_if_t<
+                  (std::is_same_v<std::decay_t<V>, MissingValue> || std::is_same_v<std::decay_t<V>, RefType>), bool>
+              = true>
     void set(V&& v) noexcept {
         value = std::forward<V>(v);
     }
@@ -551,12 +608,6 @@ struct KeyValue {
         return visitHelper(std::forward<Func>(func), std::move(value));
     }
 
-    // This& operator=(const This&) = default;
-    // This& operator=(This&&) noexcept = default;
-
-    // template<typename V>
-    // This& operator=(V&& v) noexcept { value = std::forward<V>(v); }
-
 
     // Make sure no reference is hold and value is owned
     void acquire() {
@@ -570,20 +621,9 @@ struct KeyValue {
     template <typename Func>
     This& withDefault(Func&& func) {
         if (isMissing()) {
-            this->value = std::forward<Func>(func)();
+            this->set(std::forward<Func>(func)());
         }
         return *this;
-    }
-
-
-    // Explicit functions generating new values
-    template <typename Func>
-    This orElse(Func&& func) && {
-        return !isMissing() ? std::move(*this) : std::forward<Func>(func)();
-    }
-    template <typename Func>
-    This orElse(Func&& func) const& {
-        return !isMissing() ? *this : std::forward<Func>(func)();
     }
 };
 
@@ -653,11 +693,24 @@ decltype(auto) toKeyValueRef(V&& v) {
         }
     }
     else {
-        if constexpr (!std::is_lvalue_reference_v<V> || std::is_same_v<std::decay_t<V>, MissingValue>) {
-            return KV{std::move(v)};
+        if constexpr (std::is_same_v<std::decay_t<V>, MissingValue>) {
+            return KV{};
+        }
+        else if constexpr (std::is_same_v<std::decay_t<V>, typename KV::ValueType>) {
+            if constexpr (!std::is_lvalue_reference_v<V>) {
+                return KV{std::move(v)};
+            }
+            else {
+                return KV{typename KV::RefType(v)};
+            }
         }
         else {
-            return KV{typename KV::RefType(v)};
+            if constexpr (!std::is_lvalue_reference_v<V>) {
+                return KV{KV::Description::read(std::move(v))};
+            }
+            else {
+                return KV{KV::Description::read(v)};
+            }
         }
     }
     return KV{};  // unreachable - prevent compiler warning
@@ -679,11 +732,24 @@ decltype(auto) toKeyValue(V&& v) {
         }
     }
     else {
-        if constexpr (!std::is_lvalue_reference_v<V> || std::is_same_v<std::decay_t<V>, MissingValue>) {
-            return KV{std::move(v)};
+        if constexpr (std::is_same_v<std::decay_t<V>, MissingValue>) {
+            return KV{};
+        }
+        else if constexpr (std::is_same_v<std::decay_t<V>, typename KV::ValueType>) {
+            if constexpr (!std::is_lvalue_reference_v<V>) {
+                return KV{std::move(v)};
+            }
+            else {
+                return KV{v};
+            }
         }
         else {
-            return KV{v};
+            if constexpr (!std::is_lvalue_reference_v<V>) {
+                return KV{KV::Description::read(std::move(v))};
+            }
+            else {
+                return KV{KV::Description::read(v)};
+            }
         }
     }
     return KV{};  // unreachable - prevent compiler warning
@@ -1175,7 +1241,7 @@ std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<Ke
 
             os << key.key << "=";
             if (value.isMissing()) {
-                os << "null";
+                os << "<MISSING>";
             }
             else {
                 os << value.get();

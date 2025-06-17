@@ -25,6 +25,7 @@
 #include "atlas/library.h"
 #include "atlas/parallel/mpi/mpi.h"
 
+#include "multio/datamod/DataModelling.h"
 #include "multio/datamod/MarsMiscGeo.h"
 #include "multio/message/Metadata.h"
 #include "multio/message/Parametrization.h"
@@ -86,6 +87,9 @@ struct AtlasGeoSetter {
             }
             key<GeoGG::Pl>(geoGG).set(std::move(pl));
         }
+
+        // Explicitly validate after manual setting
+        alterAndValidate(geoGG);
 
         write(geoGG, md);
         // Todo - update parametrization directly with KeyValueSet ?
