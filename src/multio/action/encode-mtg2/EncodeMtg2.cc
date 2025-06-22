@@ -22,6 +22,11 @@
 #include "multio/message/Parametrization.h"
 #include "multio/util/MioGribHandle.h"
 #include "multio/util/PrecisionTag.h"
+<<<<<<< HEAD
+=======
+#include "multio/message/Glossary.h"
+#include "wrappers/WrappedRules.h"
+>>>>>>> 2c540757 (Add c++ class to wrap rules loader)
 
 namespace multio::action::encode_mtg2 {
 
