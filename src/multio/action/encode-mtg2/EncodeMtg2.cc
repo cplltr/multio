@@ -25,6 +25,8 @@
 <<<<<<< HEAD
 =======
 #include "multio/message/Glossary.h"
+#include "wrappers/hack.h"
+#include "wrappers/WrappedEncoder.h"
 #include "wrappers/WrappedRules.h"
 >>>>>>> 2c540757 (Add c++ class to wrap rules loader)
 
