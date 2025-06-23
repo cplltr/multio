@@ -35,10 +35,10 @@ struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseM
 
     template <typename KVD, typename MD,
               std::enable_if_t<
-                  (IsKeyValueDescription_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
+                  (IsKeyDefinition_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
               = true>
     static decltype(auto) getByRef(const KVD& kvd, MD&& md) {
-        if (auto search = std::forward<MD>(md).find(kvd.key); search != md.end()) {
+        if (auto search = std::forward<MD>(md).find(kvd.key()); search != md.end()) {
             auto visitor = [&](auto&& v) {
                 if constexpr (std::is_same_v<message::Null, std::decay_t<decltype(v)>>) {
                     if constexpr (KVD::tag == KVTag::Required) {
@@ -92,7 +92,7 @@ struct KeyValueReader<message::Metadata> : KeyValueReader<message::BaseMetadata>
 template <>
 struct KeyValueWriter<message::BaseMetadata> {
     template <typename KVD, typename KV_, typename MD,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>),
                                bool>
               = true>
@@ -101,7 +101,7 @@ struct KeyValueWriter<message::BaseMetadata> {
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key, KVD::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(), KVD::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
             }});
     }
 };
@@ -171,10 +171,10 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
 
     template <typename KVD, typename Conf,
               std::enable_if_t<
-                  (IsKeyValueDescription_v<KVD> && std::is_base_of_v<eckit::Configuration, std::decay_t<Conf>>), bool>
+                  (IsKeyDefinition_v<KVD> && std::is_base_of_v<eckit::Configuration, std::decay_t<Conf>>), bool>
               = true>
     static decltype(auto) getByRef(const KVD& kvd, Conf&& conf) {
-        if (!conf.has(kvd.key)) {
+        if (!conf.has(kvd.key())) {
             if constexpr (KVD::tag == KVTag::Required) {
                 std::ostringstream oss;
                 oss << "Configuration has no key " << kvd.describe() << ": " << conf << std::endl;
@@ -183,17 +183,17 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
             return toMissingOrDefaultValue(kvd);
         }
 
-        if (conf.isNull(kvd.key)) {
+        if (conf.isNull(kvd.key())) {
             if constexpr (KVD::tag == KVTag::Required) {
                 std::ostringstream oss;
-                oss << "Key \"" << kvd.key << "\" in configuration should have a non-null value: " << conf << std::endl;
+                oss << "Key \"" << kvd.key() << "\" in configuration should have a non-null value: " << conf << std::endl;
                 throw DataModellingException(oss.str(), Here());
             }
             return toMissingOrDefaultValue(kvd);
         }
 
 
-        return visitNonNullValue(kvd.key, conf,
+        return visitNonNullValue(kvd.key(), conf,
                                  eckit::Overloaded{[&]() {
                                                        std::ostringstream oss;
                                                        oss << "Unsupported value for key " << kvd.describe()
@@ -205,7 +205,7 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
                                                    [&](auto tt) {
                                                        using Type = typename std::decay_t<decltype(tt)>::type;
                                                        if constexpr (KVD::template CanCreateFromValue_v<Type>) {
-                                                           return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key));
+                                                           return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key()));
                                                        }
                                                        else {
                                                            std::ostringstream oss;
@@ -238,7 +238,7 @@ struct KeyValueReader<eckit::LocalConfiguration> : KeyValueReader<eckit::Configu
 template <>
 struct KeyValueWriter<eckit::LocalConfiguration> {
     template <typename KVD, typename KV_, typename LConf,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<eckit::LocalConfiguration, std::decay_t<LConf>>),
                                bool>
               = true>
@@ -247,7 +247,7 @@ struct KeyValueWriter<eckit::LocalConfiguration> {
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key, KVD::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(), KVD::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
             }});
     }
 };

@@ -27,14 +27,19 @@ enum class TestKeys : std::uint64_t
 };
 
 namespace multio::datamod {
-MULTIO_KEY_SET_DESCRIPTION(TestKeys,  //
-                           "test",    //
-                                      //
-                           describeKeyValue<TestKeys::Key1, std::string, KVTag::Required>("key1"),
-                           describeKeyValue<TestKeys::Key2, double, KVTag::Required>("key2"),
-                           describeKeyValue<TestKeys::Key3, std::int64_t, KVTag::Required>("key3"),
-                           describeKeyValue<TestKeys::Key4, std::int64_t, KVTag::Optional>("key4"),
-                           describeKeyValue<TestKeys::Key5, bool, KVTag::Required>("key5"));
+MULTIO_KEY_SET_DESCRIPTION(TestKeys,                                      //
+                           "test",                                        //
+                                                                          //
+                           KeyDef<TestKeys::Key1, std::string>{"key1"},   //
+                           KeyDef<TestKeys::Key2, double>{"key2"},        //
+                           KeyDef<TestKeys::Key3, std::int64_t>{"key3"},  //
+                           KeyDef<TestKeys::Key4, std::int64_t>{"key4"}.tagOptional().withDescription(
+                               "Key4 describes the "
+                               "answer to the ultimate question of life, the universe, and everything. "
+                               "It is optional, because we assume that you can not provide it. If you could, "
+                               "all this code would not be need and hence you would not read this, "
+                               "right?"),                          //
+                           KeyDef<TestKeys::Key5, bool>{"key5"});  //
 }
 
 
@@ -49,13 +54,8 @@ template <>
 struct multio::datamod::KeySetDescription<TestKeys2> {
     static constexpr std::string_view name = "test2";
 
-    static const auto& keys() {
-        using namespace multio::datamod;
-        static const auto keys
-            = std::make_tuple(describeKeyValue<TestKeys2::Key1, std::string, KVTag::Required>("key1"),
-                              describeKeyValue<TestKeys2::Key2, double, KVTag::Required>("key2"));
-        return keys;
-    }
+    static constexpr auto keyDefs
+        = std::make_tuple(KeyDef<TestKeys2::Key1, std::string>{"key1"}, KeyDef<TestKeys2::Key2, double>{"key2"});
 };
 
 
@@ -70,14 +70,13 @@ enum class TestOpts : std::uint64_t
 };
 
 namespace multio::datamod {
-MULTIO_KEY_SET_DESCRIPTION(
-    TestOpts,     //
-    "test-opts",  //
-                  //
-    describeKeyValue<TestOpts::ReqKey, std::string, KVTag::Required>("req-key"),
-    describeKeyValue<TestOpts::DefKey1, std::string, KVTag::Defaulted>("def-key1").withDefault("default-key1-value"),
-    describeKeyValue<TestOpts::DefKey2, std::string, KVTag::Defaulted>("def-key2"),
-    describeKeyValue<TestOpts::OptKey, std::string, KVTag::Optional>("opt-key"));
+MULTIO_KEY_SET_DESCRIPTION(TestOpts,                                                                              //
+                           "test-opts",                                                                           //
+                                                                                                                  //
+                           KeyDef<TestOpts::ReqKey, std::string>{"req-key"},                                      //
+                           KeyDef<TestOpts::DefKey1, std::string>{"def-key1"}.withDefault("default-key1-value"),  //
+                           KeyDef<TestOpts::DefKey2, std::string>{"def-key2"}.tagDefaulted(),                     //
+                           KeyDef<TestOpts::OptKey, std::string>{"opt-key"}.tagOptional());
 
 
 template <>
@@ -90,6 +89,33 @@ struct KeySetAlter<KeySet<TestOpts>> {
 };
 
 }  // namespace multio::datamod
+
+
+namespace multio::test {
+// Test constexpr
+using namespace multio::datamod;
+constexpr auto reqKey = KeyDef<TestOpts::ReqKey, std::string>{"req-key"};
+constexpr auto reqKeyWithDescr = KeyDef<TestOpts::ReqKey, std::string>{"req-key"}.withDescription(
+    "A key that has been just introduced to show how it is described with this text.");
+constexpr auto defKey1 = KeyDef<TestOpts::DefKey1, std::string>{"def-key1"}.withDefault("default-key1-value");
+constexpr auto defKey1WithDescr = KeyDef<TestOpts::DefKey1, std::string>{"def-key1"}
+                                      .withDefault("default-key1-value")
+                                      .withDescription(
+                                          "long "
+                                          "multiline"
+                                          "description");
+
+constexpr auto keys = std::make_tuple(KeyDef<TestOpts::ReqKey, std::string>{"req-key"},
+                                      KeyDef<TestOpts::DefKey1, std::string>{"def-key1"}
+                                          .withDefault("default-key1-value")
+                                          .withDescription("long "
+                                                           "multiline"
+                                                           "description"));
+
+// static constexpr KeyDef<TestOpts::ReqKey, std::string, KVTag::Required> reqKey{"req-key"};
+// constexpr KeyDef<TestOpts::DefKey1, std::string, KVTag::Defaulted> defKey1
+// {"def-key1"}.withDefault("default-key1-value");
+}  // namespace multio::test
 
 
 namespace multio::test {

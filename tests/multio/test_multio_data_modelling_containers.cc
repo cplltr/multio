@@ -39,16 +39,15 @@ enum class TestKeys : std::uint64_t
 
 
 namespace multio::datamod {
-MULTIO_KEY_SET_DESCRIPTION(TestKeys,  //
-                           "test",    //
-                                      //
-                           describeKeyValue<TestKeys::Key1, std::string, KVTag::Required>("key1"),
-                           describeKeyValue<TestKeys::Key2, double, KVTag::Required>("key2"),
-                           describeKeyValue<TestKeys::Key3, std::int64_t, KVTag::Required>("key3"),
-                           describeKeyValue<TestKeys::Key4, std::int64_t, KVTag::Optional>("key4"),
-                           describeKeyValue<TestKeys::Key5, bool, KVTag::Required>("key5"),
-                           describeKeyValue<TestKeys::Key6, std::vector<double>, KVTag::Optional>(
-                               "key6"));  // Using arrays with local configuration can be very dangerous...
+MULTIO_KEY_SET_DESCRIPTION(TestKeys,                                                                             //
+                           "test",                                                                               //
+                                                                                                                 //
+                           KeyDef<TestKeys::Key1, std::string>{"key1"}, KeyDef<TestKeys::Key2, double>{"key2"},  //
+                           KeyDef<TestKeys::Key3, std::int64_t>{"key3"},                                         //
+                           KeyDef<TestKeys::Key4, std::int64_t>{"key4"}.tagOptional(),                           //
+                           KeyDef<TestKeys::Key5, bool>{"key5"},                                                 //
+                           KeyDef<TestKeys::Key6, std::vector<double>>{"key6"}
+                               .tagOptional());  // Using arrays with local configuration can be very dangerous...
 }
 
 

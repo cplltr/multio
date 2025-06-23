@@ -40,8 +40,21 @@ namespace multio::datamod {
 struct Glossary {
     using KeyType = util::PrehashedKey<std::string>;
 
-    template <typename ValueType, typename Mapper = DefaultMapper>
-    using KV = KeyValueDescription<0, ValueType, KVTag::Required, Mapper>;
+    template <typename ValueType>
+    struct KV {
+        using KeyType = util::PrehashedKey<std::string>;
+        using This = KV<ValueType>;
+
+        // To be removed in future when glossary is refactored
+        operator const KeyType&() const { return key_; }
+        operator const std::string&() const { return key_; }
+
+        const KeyType& key() const { return key_; }
+
+        // Members
+        KeyType key_;
+    };
+
 
     // General keys
     const KeyType name{"name"};

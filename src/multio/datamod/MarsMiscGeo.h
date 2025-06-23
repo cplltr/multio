@@ -138,35 +138,38 @@ enum class MarsKeys : std::uint64_t
 
 
 MULTIO_KEY_SET_DESCRIPTION(
-    MarsKeys,  //
-    "mars",    //
-               //
-    describeKeyValue<MarsKeys::EXPVER, std::string, KVTag::Required>("expver"),
-    describeKeyValue<MarsKeys::STREAM, std::string, KVTag::Required>("stream"),
-    describeKeyValue<MarsKeys::TYPE, std::string, KVTag::Required>("type"),
-    describeKeyValue<MarsKeys::CLASS, std::string, KVTag::Required>("class"),
-    describeKeyValue<MarsKeys::PARAM, std::int64_t, KVTag::Required, mapper::ParamMapper>("param"),
-    describeKeyValue<MarsKeys::ORIGIN, std::string, KVTag::Defaulted>("origin").withDefault("ecmf"),
-    describeKeyValue<MarsKeys::ANOFFSET, std::int64_t, KVTag::Optional>("anoffset"),
-    describeKeyValue<MarsKeys::PACKING, std::string, KVTag::Optional>("packing"),
-    describeKeyValue<MarsKeys::NUMBER, std::int64_t, KVTag::Optional>("number"),
-    describeKeyValue<MarsKeys::IDENT, std::int64_t, KVTag::Optional>("ident"),
-    describeKeyValue<MarsKeys::INSTRUMENT, std::int64_t, KVTag::Optional>("instrument"),
-    describeKeyValue<MarsKeys::CHANNEL, std::int64_t, KVTag::Optional>("channel"),
-    describeKeyValue<MarsKeys::CHEM, std::int64_t, KVTag::Optional>("chem"),
-    describeKeyValue<MarsKeys::MODEL, std::string, KVTag::Optional>("model"),
-    describeKeyValue<MarsKeys::LEVTYPE, std::string, KVTag::Optional>("levtype"),
-    describeKeyValue<MarsKeys::LEVELIST, std::int64_t, KVTag::Optional>("levelist"),
-    describeKeyValue<MarsKeys::DIRECTION, std::int64_t, KVTag::Optional>("direction"),
-    describeKeyValue<MarsKeys::FREQUENCY, std::int64_t, KVTag::Optional>("frequency"),
-    describeKeyValue<MarsKeys::DATE, std::int64_t, KVTag::Required>("date"),
-    describeKeyValue<MarsKeys::TIME, std::int64_t, KVTag::Required>("time"),
-    describeKeyValue<MarsKeys::STEP, TimeDuration, KVTag::Required>("step"),
-    describeKeyValue<MarsKeys::TIMEPROC, TimeDuration, KVTag::Optional>("timeproc"),
-    describeKeyValue<MarsKeys::HDATE, std::int64_t, KVTag::Optional>("hdate"),
-    describeKeyValue<MarsKeys::GRID, std::string, KVTag::Optional>("grid"),
-    describeKeyValue<MarsKeys::TRUNCATION, std::int64_t, KVTag::Optional>("truncation"),
-    describeKeyValue<MarsKeys::REPRES, Repres, KVTag::Defaulted>("repres"));
+    MarsKeys,                                                                //
+    "mars",                                                                  //
+                                                                             //
+    KeyDef<MarsKeys::EXPVER, std::string>{"expver"},                         //
+    KeyDef<MarsKeys::STREAM, std::string>{"stream"},                         //
+    KeyDef<MarsKeys::TYPE, std::string>{"type"},                             //
+    KeyDef<MarsKeys::CLASS, std::string>{"class"},                           //
+    KeyDef<MarsKeys::PARAM, std::int64_t, mapper::ParamMapper>{"param"},     //
+    KeyDef<MarsKeys::ORIGIN, std::string>{"origin"}.withDefault("ecmf"),     //
+    KeyDef<MarsKeys::ANOFFSET, std::int64_t>{"anoffset"}.tagOptional(),      //
+    KeyDef<MarsKeys::PACKING, std::string>{"packing"}.tagOptional(),         //
+    KeyDef<MarsKeys::NUMBER, std::int64_t>{"number"}.tagOptional(),          //
+    KeyDef<MarsKeys::IDENT, std::int64_t>{"ident"}.tagOptional(),            //
+    KeyDef<MarsKeys::INSTRUMENT, std::int64_t>{"instrument"}.tagOptional(),  //
+    KeyDef<MarsKeys::CHANNEL, std::int64_t>{"channel"}.tagOptional(),        //
+    KeyDef<MarsKeys::CHEM, std::int64_t>{"chem"}.tagOptional(),              //
+    KeyDef<MarsKeys::MODEL, std::string>{"model"}.tagOptional(),             //
+    KeyDef<MarsKeys::LEVTYPE, std::string>{"levtype"}.tagOptional(),         //
+    KeyDef<MarsKeys::LEVELIST, std::int64_t>{"levelist"}.tagOptional(),      //
+    KeyDef<MarsKeys::DIRECTION, std::int64_t>{"direction"}.tagOptional(),    //
+    KeyDef<MarsKeys::FREQUENCY, std::int64_t>{"frequency"}.tagOptional(),    //
+    KeyDef<MarsKeys::DATE, std::int64_t>{"date"},                            //
+    KeyDef<MarsKeys::TIME, std::int64_t>{"time"},                            //
+    KeyDef<MarsKeys::STEP, TimeDuration>{"step"},                            //
+    KeyDef<MarsKeys::TIMEPROC, TimeDuration>{"timeproc"}.tagOptional(),      //
+    KeyDef<MarsKeys::HDATE, std::int64_t>{"hdate"}.tagOptional(),            //
+    KeyDef<MarsKeys::GRID, std::string>{"grid"}.tagOptional(),               //
+    KeyDef<MarsKeys::TRUNCATION, std::int64_t>{"truncation"}.tagOptional(),  //
+    KeyDef<MarsKeys::REPRES, Repres>{"repres"}.tagDefaulted().withDescription(
+        "`repres` describes the type of representation (e.g. gaussian grid, longitude/latitude, spherical harmonics) "
+        "without defining resolution. It can derived from `grid` and `truncation`. If passed its value is compared "
+        "against the derived value."));
 
 using MarsKeySet = KeySet<MarsKeys>;
 using MarsKeyValueSet = KeyValueSet<MarsKeySet>;
@@ -196,7 +199,6 @@ struct KeySetAlter<MarsKeySet> {
 
         if (!grid.isMissing()) {
             auto detRepres = represFromGrid(grid.get());
-
             if (!repres.isMissing() && (detRepres != repres.get())) {
                 std::ostringstream oss;
                 oss << "Passed value for repres is " << repres.get() << " but derived value  " << detRepres
@@ -290,44 +292,39 @@ enum class MiscKeys : std::uint64_t
 
 
 MULTIO_KEY_SET_DESCRIPTION(
-    MiscKeys,  //
-    "misc",    //
-               //
-    describeKeyValue<MiscKeys::TablesVersion, std::int64_t, KVTag::Optional>("tablesVersion"),
-    describeKeyValue<MiscKeys::GeneratingProcessIdentifier, std::int64_t, KVTag::Optional>(
-        "generatingProcessIdentifier"),
-    describeKeyValue<MiscKeys::Typeofprocesseddata, std::int64_t, KVTag::Optional>("typeofprocesseddata"),
-    describeKeyValue<MiscKeys::EncodeStepZero, bool, KVTag::Optional, mapper::IntToBoolMapper>("encodeStepZero"),
-    describeKeyValue<MiscKeys::InitialStep, std::int64_t, KVTag::Defaulted>("initialStep").withDefault(0),
-    describeKeyValue<MiscKeys::LengthOfTimeRange, std::int64_t, KVTag::Optional>("lengthOfTimeRange"),
-    describeKeyValue<MiscKeys::LengthOfTimeStep, std::int64_t, KVTag::Optional>("lengthOfTimeStep"),
-    describeKeyValue<MiscKeys::LengthOfTimeRangeInSeconds, std::int64_t, KVTag::Optional>("lengthOfTimeRangeInSeconds"),
-    describeKeyValue<MiscKeys::LengthOfTimeStepInSeconds, std::int64_t, KVTag::Defaulted>("lengthOfTimeStepInSeconds")
-        .withDefault(3600),
-    describeKeyValue<MiscKeys::ValuesScaleFactor, double, KVTag::Optional>("valuesScaleFactor"),
-    describeKeyValue<MiscKeys::Pv, std::vector<double>, KVTag::Optional>("pv"),
-    describeKeyValue<MiscKeys::NumberOfMissingValues, std::int64_t, KVTag::Optional>("numberOfMissingValues"),
-    describeKeyValue<MiscKeys::ValueOfMissingValues, double, KVTag::Optional>("valueOfMissingValues"),
-    describeKeyValue<MiscKeys::TypeOfEnsembleForecast, std::int64_t, KVTag::Optional>("typeOfEnsembleForecast"),
-    describeKeyValue<MiscKeys::NumberOfForecastsInEnsemble, std::int64_t, KVTag::Optional>(
-        "numberOfForecastsInEnsemble"),
-    describeKeyValue<MiscKeys::LengthOfTimeWindow, std::int64_t, KVTag::Optional>("lengthOfTimeWindow"),
-    describeKeyValue<MiscKeys::LengthOfTimeWindowInSeconds, std::int64_t, KVTag::Optional>(
-        "lengthOfTimeWindowInSeconds"),
-    describeKeyValue<MiscKeys::BitsPerValue, std::int64_t, KVTag::Optional>("bitsPerValue"),
-    describeKeyValue<MiscKeys::PeriodMin, std::int64_t, KVTag::Optional>("periodMin"),
-    describeKeyValue<MiscKeys::PeriodMax, std::int64_t, KVTag::Optional>("periodMax"),
-    describeKeyValue<MiscKeys::WaveDirections, std::vector<double>, KVTag::Optional>("waveDirections"),
-    describeKeyValue<MiscKeys::WaveFrequencies, std::vector<double>, KVTag::Optional>("waveFrequencies"),
-    describeKeyValue<MiscKeys::SatelliteSeries, std::int64_t, KVTag::Optional>("satelliteSeries"),
-    describeKeyValue<MiscKeys::ScaleFactorOfCentralWavenumber, std::int64_t, KVTag::Optional>(
-        "scaleFactorOfCentralWavenumber"),
-    describeKeyValue<MiscKeys::ScaledValueOfCentralWavenumber, std::int64_t, KVTag::Optional>(
-        "scaledValueOfCentralWavenumber"),
-
-    // TBD - move to marse
-    describeKeyValue<MiscKeys::MethodNumber, std::int64_t, KVTag::Optional>("methodNumber"),
-    describeKeyValue<MiscKeys::SystemNumber, std::int64_t, KVTag::Optional>("systemNumber"));
+    MiscKeys,                                                                                                  //
+    "misc",                                                                                                    //
+    KeyDef<MiscKeys::TablesVersion, std::int64_t>{"tablesVersion"}.tagOptional(),                              //
+    KeyDef<MiscKeys::GeneratingProcessIdentifier, std::int64_t>{"generatingProcessIdentifier"}.tagOptional(),  //
+    KeyDef<MiscKeys::Typeofprocesseddata, std::int64_t>{"typeofprocesseddata"}.tagOptional(),                  //
+    KeyDef<MiscKeys::EncodeStepZero, bool, mapper::IntToBoolMapper>{"encodeStepZero"}.tagOptional(),           //
+    KeyDef<MiscKeys::InitialStep, std::int64_t>{"initialStep"}.withDefault(0),                                 //
+    KeyDef<MiscKeys::LengthOfTimeRange, std::int64_t>{"lengthOfTimeRange"}.tagOptional(),                      //
+    KeyDef<MiscKeys::LengthOfTimeStep, std::int64_t>{"lengthOfTimeStep"}.tagOptional(),                        //
+    KeyDef<MiscKeys::LengthOfTimeRangeInSeconds, std::int64_t>{"lengthOfTimeRangeInSeconds"}.tagOptional(),    //
+    KeyDef<MiscKeys::LengthOfTimeStepInSeconds, std::int64_t>{"lengthOfTimeStepInSeconds"}.withDefault(3600),  //
+    KeyDef<MiscKeys::ValuesScaleFactor, double>{"valuesScaleFactor"}.tagOptional(),                            //
+    KeyDef<MiscKeys::Pv, std::vector<double>>{"pv"}.tagOptional(),                                             //
+    KeyDef<MiscKeys::NumberOfMissingValues, std::int64_t>{"numberOfMissingValues"}.tagOptional(),              //
+    KeyDef<MiscKeys::ValueOfMissingValues, double>{"valueOfMissingValues"}.tagOptional(),                      //
+    KeyDef<MiscKeys::TypeOfEnsembleForecast, std::int64_t>{"typeOfEnsembleForecast"}.tagOptional(),            //
+    KeyDef<MiscKeys::NumberOfForecastsInEnsemble, std::int64_t>{"numberOfForecastsInEnsemble"}.tagOptional(),  //
+    KeyDef<MiscKeys::LengthOfTimeWindow, std::int64_t>{"lengthOfTimeWindow"}.tagOptional(),                    //
+    KeyDef<MiscKeys::LengthOfTimeWindowInSeconds, std::int64_t>{"lengthOfTimeWindowInSeconds"}.tagOptional(),  //
+    KeyDef<MiscKeys::BitsPerValue, std::int64_t>{"bitsPerValue"}.tagOptional(),                                //
+    KeyDef<MiscKeys::PeriodMin, std::int64_t>{"periodMin"}.tagOptional().withDescription(
+        "`periodMin` usually is depending on `paramId` and derived by ECCODES. in some cases it is "
+        "passed through."),  //
+    KeyDef<MiscKeys::PeriodMax, std::int64_t>{"periodMax"}.tagOptional().withDescription(
+        "`periodMax` usually is depending on `paramId` and derived by ECCODES. In some cases it is "
+        "passed through."),                                                                                          //
+    KeyDef<MiscKeys::WaveDirections, std::vector<double>>{"waveDirections"}.tagOptional(),                           //
+    KeyDef<MiscKeys::WaveFrequencies, std::vector<double>>{"waveFrequencies"}.tagOptional(),                         //
+    KeyDef<MiscKeys::SatelliteSeries, std::int64_t>{"satelliteSeries"}.tagOptional(),                                //
+    KeyDef<MiscKeys::ScaleFactorOfCentralWavenumber, std::int64_t>{"scaleFactorOfCentralWavenumber"}.tagOptional(),  //
+    KeyDef<MiscKeys::ScaledValueOfCentralWavenumber, std::int64_t>{"scaledValueOfCentralWavenumber"}.tagOptional(),  //
+    KeyDef<MiscKeys::MethodNumber, std::int64_t>{"methodNumber"}.tagOptional(),                                      //
+    KeyDef<MiscKeys::SystemNumber, std::int64_t>{"systemNumber"}.tagOptional());                                     //
 
 
 //-----------------------------------------------------------------------------
@@ -346,23 +343,19 @@ enum class GeoGG : std::uint64_t
     Pl
 };
 
-MULTIO_KEY_SET_DESCRIPTION(GeoGG,     //
-                           "geo-gg",  //
-                                      //
-                           describeKeyValue<GeoGG::TruncateDegrees, std::int64_t, KVTag::Optional>("truncateDegrees"),
-                           describeKeyValue<GeoGG::NumberOfPointsAlongAMeridian, std::int64_t, KVTag::Optional>(
-                               "numberOfPointsAlongAMeridian"),
-                           describeKeyValue<GeoGG::NumberOfParallelsBetweenAPoleAndTheEquator, std::int64_t,
-                                            KVTag::Required>("numberOfParallelsBetweenAPoleAndTheEquator"),
-                           describeKeyValue<GeoGG::LatitudeOfFirstGridPointInDegrees, double, KVTag::Required>(
-                               "latitudeOfFirstGridPointInDegrees"),
-                           describeKeyValue<GeoGG::LongitudeOfFirstGridPointInDegrees, double, KVTag::Required>(
-                               "longitudeOfFirstGridPointInDegrees"),
-                           describeKeyValue<GeoGG::LatitudeOfLastGridPointInDegrees, double, KVTag::Required>(
-                               "latitudeOfLastGridPointInDegrees"),
-                           describeKeyValue<GeoGG::LongitudeOfLastGridPointInDegrees, double, KVTag::Required>(
-                               "longitudeOfLastGridPointInDegrees"),
-                           describeKeyValue<GeoGG::Pl, std::vector<std::int64_t>, KVTag::Optional>("pl"));
+MULTIO_KEY_SET_DESCRIPTION(
+    GeoGG,                                                                                                    //
+    "geo-gg",                                                                                                 //
+                                                                                                              //
+    KeyDef<GeoGG::TruncateDegrees, std::int64_t>{"truncateDegrees"}.tagOptional(),                            //
+    KeyDef<GeoGG::NumberOfPointsAlongAMeridian, std::int64_t>{"numberOfPointsAlongAMeridian"}.tagOptional(),  //
+    KeyDef<GeoGG::NumberOfParallelsBetweenAPoleAndTheEquator, std::int64_t>{
+        "numberOfParallelsBetweenAPoleAndTheEquator"},                                                //
+    KeyDef<GeoGG::LatitudeOfFirstGridPointInDegrees, double>{"latitudeOfFirstGridPointInDegrees"},    //
+    KeyDef<GeoGG::LongitudeOfFirstGridPointInDegrees, double>{"longitudeOfFirstGridPointInDegrees"},  //
+    KeyDef<GeoGG::LatitudeOfLastGridPointInDegrees, double>{"latitudeOfLastGridPointInDegrees"},      //
+    KeyDef<GeoGG::LongitudeOfLastGridPointInDegrees, double>{"longitudeOfLastGridPointInDegrees"},    //
+    KeyDef<GeoGG::Pl, std::vector<std::int64_t>>{"pl"}.tagOptional());                                //
 
 //-----------------------------------------------------------------------------
 // Geometry keys - sh
@@ -375,15 +368,13 @@ enum class GeoSH : std::uint64_t
     PentagonalResolutionParameterM
 };
 
-MULTIO_KEY_SET_DESCRIPTION(GeoSH,     //
-                           "geo-sh",  //
-                                      //
-                           describeKeyValue<GeoSH::PentagonalResolutionParameterJ, std::int64_t, KVTag::Required>(
-                               "pentagonalResolutionParameterJ"),
-                           describeKeyValue<GeoSH::PentagonalResolutionParameterK, std::int64_t, KVTag::Required>(
-                               "pentagonalResolutionParameterK"),
-                           describeKeyValue<GeoSH::PentagonalResolutionParameterM, std::int64_t, KVTag::Required>(
-                               "pentagonalResolutionParameterM"));
+MULTIO_KEY_SET_DESCRIPTION(
+    GeoSH,                                                                                           //
+    "geo-sh",                                                                                        //
+                                                                                                     //
+    KeyDef<GeoSH::PentagonalResolutionParameterJ, std::int64_t>{"pentagonalResolutionParameterJ"},   //
+    KeyDef<GeoSH::PentagonalResolutionParameterK, std::int64_t>{"pentagonalResolutionParameterK"},   //
+    KeyDef<GeoSH::PentagonalResolutionParameterM, std::int64_t>{"pentagonalResolutionParameterM"});  //
 
 //-----------------------------------------------------------------------------
 // Geometry keys - ll

@@ -43,15 +43,14 @@ namespace datamod {
 
 using action::EncodeOptions;
 
-MULTIO_KEY_SET_DESCRIPTION(
-    EncodeOptions,  //
-    "encode-mtg2",  //
-                    //
-    describeKeyValue<EncodeOptions::KnowledgeRoot, std::string, KVTag::Defaulted>("knowledge-root"),
-    describeKeyValue<EncodeOptions::SamplesPath, std::string, KVTag::Defaulted>("samples-path"),
-    describeKeyValue<EncodeOptions::EncodingRules, std::string, KVTag::Defaulted>("encoding-rules"),
-    describeKeyValue<EncodeOptions::MappingRules, std::string, KVTag::Defaulted>("mapping-rules"),
-    describeKeyValue<EncodeOptions::GeoFromAtlas, bool, KVTag::Defaulted>("geo-from-atlas").withDefault(false))
+MULTIO_KEY_SET_DESCRIPTION(EncodeOptions,                                                                       //
+                           "encode-mtg2",                                                                       //
+                                                                                                                //
+                           KeyDef<EncodeOptions::KnowledgeRoot, std::string>{"knowledge-root"}.tagDefaulted(),  //
+                           KeyDef<EncodeOptions::SamplesPath, std::string>{"samples-path"}.tagDefaulted(),      //
+                           KeyDef<EncodeOptions::EncodingRules, std::string>{"encoding-rules"}.tagDefaulted(),  //
+                           KeyDef<EncodeOptions::MappingRules, std::string>{"mapping-rules"}.tagDefaulted(),    //
+                           KeyDef<EncodeOptions::GeoFromAtlas, bool>{"geo-from-atlas"}.withDefault(false))
 
 
 template <>

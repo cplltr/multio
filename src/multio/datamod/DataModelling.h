@@ -44,7 +44,9 @@
 // Advantage:
 //  * The mechanism implies some constraints and requirements on what we need to describe. Then we generate a lot of
 //  code.
-//  * Exchanging interfacing types (i.e. `eckit::LocalConfiguration`) is simple
+//  * Exchanging interfacing types (i.e. removing `eckit::LocalConfiguration` of other YAML parser) is simple
+//  * Possibility to generate more detailed documentation and python code (i.e. via json-schema)
+//  * In future we can to more analysis on metadata requirements on a pipeline of actions
 // Disadvantage:
 //  * Some error messages can be ugly.
 //  * Need to use some of the features here
@@ -85,21 +87,24 @@
 //   * en/decoding/parsing/reading & writing calls to interact with other containers
 //   * hashing functionality
 //   * very few repetition of code (no need to repeat tho whole list of keys in various places)
+//   * doc strings as constexpr string_view (which mean they are not compiled into binary unless used - we can split
+//   json-schema generating binaries...)
 //
 // Fundamentally this happens by creating EnumType for KeySets and adressing keys through their enum ID. Sets of keys
 // are organized in tuples. Custom key sets can be created by selecting specific keys of different key sets.
 //
-// The descriptions are created through the type `KeyValueDescription`.
+// The descriptions are created through the type `KeyDefinition` as constexpr and a
+// more lightweight type `ScopedKey` which can have modifications on string representation..
 // The whole key set for an enum type is described through template specialization of a struct `KeySetDescription`.
 // Here the step of keys is described and wrapped into a tuple type, also a default scope name is given (e.g. "mars")
 //
 // A special type `KeySet` or `CustomKeySet` wraps a tuple of keys and provides scoping mechanims.
 //
-// The type `KeyValue` allows making a real value from a `KeyValueDescription`.
+// The type `KeyValue` allows making a real value from a `KeyDefinition`.
 // The type `KeyValueSet` combines a tuple of reified values and a key set - making it a real object with values.
 //
 // A `KeyValue` can contain a `MissingValue`, the specific `ValueType` or a reference to the value type.
-// The creating of a `KeyValue` from a `KeyValueDescription` happens throuh a function called `reify` - which defaults
+// The creating of a `KeyValue` from a `KeyDefinition` happens throuh a function called `reify` - which defaults
 // initiaties all values to missing.
 //
 // To interact with containers (like Metadata) a `KeyValueReader` and `KeyValueWriter` can be specialized.
@@ -117,177 +122,11 @@
 
 namespace multio::datamod {
 
-//-----------------------------------------------------------------------------
-// Definitions to describe key-value pairs
-//-----------------------------------------------------------------------------
-
-
-// Forward declaration
-enum class KVTag : std::uint64_t
-{
-    Required,   // Strictly required and can not be defaulted or conditionally depending on other keys
-    Defaulted,  // Can be missing after reading from container but then may be defaulted through a custom alter function
-    Optional,   // Can be missing after validation
-};
-
-template <typename KVTag_, std::enable_if_t<std::is_same_v<KVTag_, KVTag>, bool> = true>
-std::string toString(KVTag_ t) {
-    switch (t) {
-        case KVTag::Required:
-            return "required";
-        case KVTag::Defaulted:
-            return "defaulted";
-        default:
-            return "optional";
-    }
-}
-
-
-template <auto id_, typename ValueType_, KVTag tag_ = KVTag::Required, typename Mapper_ = DefaultMapper>
-struct KeyValueDescription {
-    using KeyType = util::PrehashedKey<std::string>;
-    using ValueType = ValueType_;
-    using Mapper = Mapper_;
-    using This = KeyValueDescription<id_, ValueType_, tag_, Mapper_>;
-
-    static const auto id = id_;
-    static constexpr KVTag tag = tag_;
-
-    template <typename V>
-    inline static constexpr bool CanCreateFromValue_v = HasRead_v<Reader<ValueType, Mapper>, V>;
-
-    // Members
-    KeyType key;
-    std::optional<ValueType> defaultValue;
-
-
-    operator const KeyType&() const { return key; }
-    operator const std::string&() const { return key; }
-
-    std::string describe() const {
-        return std::string(key) + std::string(" (") + util::typeToString<ValueType>() + std::string(", ")
-             + toString(tag) + std::string{")"};
-    }
-
-    This& withDefault(ValueType v) {
-        static_assert(tag_ == KVTag::Defaulted, "Description is not tagged as KVTag::Defaulted");
-        defaultValue = std::move(v);
-        return *this;
-    }
-
-    // Static methods
-    template <typename Val, std::enable_if_t<CanCreateFromValue_v<Val>, bool> = true>
-    static decltype(auto) read(Val&& val) {
-        return Reader<ValueType, Mapper>::read(std::forward<Val>(val));
-    }
-
-    template <typename Container>
-    static decltype(auto) write(const ValueType& val) {
-        return Writer<ValueType, Container, Mapper>::write(val);
-    }
-};
-
 
 //-----------------------------------------------------------------------------
-
-
-template <auto id_, typename ValueType, KVTag tag, typename KeyType>
-KeyValueDescription<id_, ValueType, tag> describeKeyValue(KeyType&& key) {
-    return KeyValueDescription<id_, ValueType, tag>{std::forward<KeyType>(key)};
-}
-template <auto id_, typename ValueType, KVTag tag, typename Mapper, typename KeyType>
-KeyValueDescription<id_, ValueType, tag, Mapper> describeKeyValue(KeyType&& key) {
-    return KeyValueDescription<id_, ValueType, tag, Mapper>{std::forward<KeyType>(key)};
-}
-
+// Helpers to perform access on tuple through enum
+// Requires contained types to have a `::id` defined
 //-----------------------------------------------------------------------------
-
-template <typename T>
-struct IsKeyValueDescription {
-    static constexpr bool value = false;
-};
-template <auto id, typename ValueType, KVTag tag, typename Mapper>
-struct IsKeyValueDescription<KeyValueDescription<id, ValueType, tag, Mapper>> {
-    static constexpr bool value = true;
-};
-
-template <typename T>
-inline constexpr bool IsKeyValueDescription_v = IsKeyValueDescription<T>::value;
-
-
-//-----------------------------------------------------------------------------
-// Definitions to handle key sets
-//-----------------------------------------------------------------------------
-
-/* To be specialized to retrieve a keyset with all keys for a Enum and further information
- */
-template <typename EnumType>
-struct KeySetDescription;
-
-
-template <typename T>
-struct IsKeySetDescription {
-    static constexpr bool value = false;
-};
-template <typename EnumType>
-struct IsKeySetDescription<KeySetDescription<EnumType>> {
-    static constexpr bool value = true;
-};
-
-template <typename T>
-inline constexpr bool IsKeySetDescription_v = IsKeySetDescription<T>::value;
-
-
-// Get name of a keyset
-template <typename EnumType>
-inline constexpr std::string_view KeySetDescriptionName_v = KeySetDescription<EnumType>::name;
-
-
-// TODO Remove this macro
-#define MULTIO_KEY_SET_DESCRIPTION(EnumName, keySetName, ...)      \
-    template <>                                                    \
-    struct KeySetDescription<EnumName> {                           \
-        static constexpr std::string_view name = keySetName;       \
-                                                                   \
-        static const auto& keys() {                                \
-            static const auto keys = std::make_tuple(__VA_ARGS__); \
-            return keys;                                           \
-        }                                                          \
-    };
-
-
-// To be specialized by Enums to provide custom alter function with KeyValueSet<KeySet<EnumType>>
-template <typename KeySet_>
-struct KeySetAlter;
-
-
-template <typename KeySet_, typename KeyValueSet_, class = void>
-struct HasAlterKeySetFunction : std::false_type {};
-
-template <typename KeySet_, typename KeyValueSet_>
-struct HasAlterKeySetFunction<KeySet_, KeyValueSet_,
-                              std::void_t<decltype(KeySetAlter<KeySet_>::alter(std::declval<KeyValueSet_&>()))>>
-    : std::true_type {};
-
-
-template <typename KeySet_, typename KeyValueSet_>
-inline constexpr bool HasAlterKeySetFunction_v = HasAlterKeySetFunction<KeySet_, KeyValueSet_>::value;
-
-
-template <typename KeySet_>
-struct AlterKeySetFunctor {
-    template <typename KVS_, std::enable_if_t<(HasAlterKeySetFunction_v<KeySet_, KVS_>), bool> = true>
-    void operator()(KVS_& kvs) const {
-        KeySetAlter<KeySet_>::alter(kvs);
-    }
-
-    template <typename KVS_, std::enable_if_t<(!HasAlterKeySetFunction_v<KeySet_, KVS_>), bool> = true>
-    void operator()(KVS_&) const {}
-};
-
-
-//-----------------------------------------------------------------------------
-
 
 namespace keyUtils {
 
@@ -326,6 +165,340 @@ decltype(auto) getById(Tup&& tup) {
 }  // namespace keyUtils
 
 
+//-----------------------------------------------------------------------------
+// Definitions to describe key-value pairs
+//-----------------------------------------------------------------------------
+
+
+// Forward declaration
+enum class KVTag : std::uint64_t
+{
+    Required,   // Strictly required and can not be defaulted or conditionally depending on other keys
+    Defaulted,  // Can be missing after reading from container but then may be defaulted through a custom alter function
+    Optional,   // Can be missing after validation
+};
+
+template <typename KVTag_, std::enable_if_t<std::is_same_v<KVTag_, KVTag>, bool> = true>
+std::string toString(KVTag_ t) {
+    switch (t) {
+        case KVTag::Required:
+            return "required";
+        case KVTag::Defaulted:
+            return "defaulted";
+        default:
+            return "optional";
+    }
+}
+
+
+// Dummy type as default
+struct NoDefaultFunctor {};
+
+template <auto id_, typename ValueType_, typename Mapper_ = DefaultMapper, KVTag tag_ = KVTag::Required,
+          typename DefaultValueFunctor = NoDefaultFunctor>
+struct KeyDef {
+    using ValueType = ValueType_;
+    using Mapper = Mapper_;
+    using This = KeyDef<id_, ValueType_, Mapper_, tag_, DefaultValueFunctor>;
+
+    static const auto id = id_;
+    static constexpr KVTag tag = tag_;
+
+    template <typename V>
+    inline static constexpr bool CanCreateFromValue_v = HasRead_v<Reader<ValueType, Mapper>, V>;
+
+    static constexpr bool hasDefaultValueFunctor = !std::is_same_v<DefaultValueFunctor, NoDefaultFunctor>;
+
+    //---------------------------------
+    // Accessors
+    //---------------------------------
+
+    // To be removed in the future, used as for string replacement
+    const std::string_view& key() const noexcept { return key_; }
+    ValueType defaultValue() const noexcept {
+        static_assert(hasDefaultValueFunctor, "No default functor given");
+        return defaultFunctor_();
+    }
+    const std::optional<std::string_view>& description() const noexcept { return description_; }
+
+    // std::string describe() const {
+    //     return std::string(key()) + std::string(" (") + util::typeToString<ValueType>() + std::string(", ")
+    //          + toString(tag) + std::string{")"};
+    // }
+
+    //---------------------------------
+    // Mutation
+    //---------------------------------
+
+    // Make the key-value pair optional - meaning it can be missing after alter & validation
+    constexpr auto tagOptional() const {
+        static_assert(tag_ != KVTag::Defaulted, "Description is already defaulted and can not be made optional");
+        return KeyDef<id_, ValueType_, Mapper_, KVTag::Optional, DefaultValueFunctor>{key_, description_,
+                                                                                      defaultFunctor_};
+    }
+
+    // Make the key-value pair defaulted - meaning it will be set through default functor or alter function and is
+    // guaranteed to contain a value after validation
+    constexpr auto tagDefaulted() const {
+        static_assert(tag_ != KVTag::Defaulted, "Description is already defaulted");
+        return KeyDef<id_, ValueType_, Mapper_, KVTag::Optional, DefaultValueFunctor>{key_, description_,
+                                                                                      defaultFunctor_};
+    }
+
+    // Make the key-value pair defaulted and set a functon that generates a default value
+    template <typename NewDefValFtor,
+              std::enable_if_t<!std::is_convertible_v<NewDefValFtor, ValueType>
+                                   && std::is_convertible_v<std::invoke_result_t<NewDefValFtor>, ValueType>,
+                               bool>
+              = true>
+    constexpr auto withDefault(NewDefValFtor&& ftor) const {
+        return KeyDef<id_, ValueType_, Mapper_, KVTag::Defaulted, std::decay_t<NewDefValFtor>>{
+            key_, description_, std::forward<NewDefValFtor>(ftor)};
+    }
+
+    // Make the key-value pair defaulted and set a default value (need to be constexpr literal type, or wrap generation
+    // of ValueType in a lambda otherwise)
+    template <typename Val_, std::enable_if_t<std::is_convertible_v<Val_, ValueType>, bool> = true>
+    constexpr auto withDefault(Val_ v) const {
+        return withDefault([v = std::move(v)]() { return v; });
+    }
+    // Sets the description of the value
+    constexpr auto withDescription(std::string_view descr) const {
+        return This{key_, description_, std::move(defaultFunctor_)};
+    }
+
+    //---------------------------------
+    // Static methods
+    //---------------------------------
+
+    template <typename Val, std::enable_if_t<CanCreateFromValue_v<Val>, bool> = true>
+    static decltype(auto) read(Val&& val) {
+        return Reader<ValueType, Mapper>::read(std::forward<Val>(val));
+    }
+
+    template <typename Container>
+    static decltype(auto) write(const ValueType& val) {
+        return Writer<ValueType, Container, Mapper>::write(val);
+    }
+
+    //---------------------------------
+
+
+    // Members - all "simple" to be constexpr constructable. Would be more relaxed with C++20, but it's all we need
+    std::string_view key_;
+    std::optional<std::string_view> description_{};
+    DefaultValueFunctor defaultFunctor_{};
+};
+
+
+//-----------------------------------------------------------------------------
+
+template <typename T>
+struct IsKeyDefinition {
+    static constexpr bool value = false;
+};
+template <auto id, typename ValueType, typename Mapper, KVTag tag, typename DefFunctor>
+struct IsKeyDefinition<KeyDef<id, ValueType, Mapper, tag, DefFunctor>> {
+    static constexpr bool value = true;
+};
+
+template <typename T>
+inline constexpr bool IsKeyDefinition_v = IsKeyDefinition<T>::value;
+
+
+//-----------------------------------------------------------------------------
+// Definitions to handle key sets
+//-----------------------------------------------------------------------------
+
+// To be specialized to retrieve a keyset with all keys for a Enum and further information
+template <typename EnumType>
+struct KeySetDescription;
+
+
+template <typename T>
+struct IsKeySetDescription {
+    static constexpr bool value = false;
+};
+template <typename EnumType>
+struct IsKeySetDescription<KeySetDescription<EnumType>> {
+    static constexpr bool value = true;
+};
+
+template <typename T>
+inline constexpr bool IsKeySetDescription_v = IsKeySetDescription<T>::value;
+
+
+// Get name of a keyset
+template <typename EnumType>
+inline constexpr std::string_view KeySetDescriptionName_v = KeySetDescription<EnumType>::name;
+
+
+// TODO Remove this macro
+#define MULTIO_KEY_SET_DESCRIPTION(EnumName, keySetName, ...)         \
+    template <>                                                       \
+    struct KeySetDescription<EnumName> {                              \
+        static constexpr std::string_view name = keySetName;          \
+                                                                      \
+        static constexpr auto keyDefs = std::make_tuple(__VA_ARGS__); \
+    };
+
+
+// To be specialized by Enums to provide custom alter function with KeyValueSet<KeySet<EnumType>>
+template <typename KeySet_>
+struct KeySetAlter;
+
+
+template <typename KeySet_, typename KeyValueSet_, class = void>
+struct HasAlterKeySetFunction : std::false_type {};
+
+template <typename KeySet_, typename KeyValueSet_>
+struct HasAlterKeySetFunction<KeySet_, KeyValueSet_,
+                              std::void_t<decltype(KeySetAlter<KeySet_>::alter(std::declval<KeyValueSet_&>()))>>
+    : std::true_type {};
+
+
+template <typename KeySet_, typename KeyValueSet_>
+inline constexpr bool HasAlterKeySetFunction_v = HasAlterKeySetFunction<KeySet_, KeyValueSet_>::value;
+
+
+template <typename KeySet_>
+struct AlterKeySetFunctor {
+    template <typename KVS_, std::enable_if_t<(HasAlterKeySetFunction_v<KeySet_, KVS_>), bool> = true>
+    void operator()(KVS_& kvs) const {
+        KeySetAlter<KeySet_>::alter(kvs);
+    }
+
+    template <typename KVS_, std::enable_if_t<(!HasAlterKeySetFunction_v<KeySet_, KVS_>), bool> = true>
+    void operator()(KVS_&) const {}
+};
+
+
+//-----------------------------------------------------------------------------
+// Direct accessors to key definitions - expected to be used internally only
+//-----------------------------------------------------------------------------
+
+template <auto keyId, typename Tup, std::enable_if_t<util::IsTuple_v<std::decay_t<Tup>>, bool> = true>
+decltype(auto) keyDef(Tup&& keySet) {
+    return keyUtils::getById<keyId>(std::forward<Tup>(keySet));
+}
+
+template <auto keyId>
+decltype(auto) keyDef() {
+    return keyDef<keyId>(KeySetDescription<decltype(keyId)>::keyDefs);
+}
+
+
+//-----------------------------------------------------------------------------
+
+template <auto id_>
+struct ScopedKey {
+    using KeyType = util::PrehashedKey<std::string>;
+
+    using Definition = std::decay_t<decltype(keyDef<id_>())>;
+    using ValueType = typename Definition::ValueType;
+    using Mapper = typename Definition::Mapper;
+    using This = ScopedKey<id_>;
+
+    static const auto id = id_;
+    static constexpr KVTag tag = Definition::tag;
+
+    static constexpr bool hasDefaultValueFunctor = Definition::hasDefaultValueFunctor;
+
+
+    template <typename V>
+    inline static constexpr bool CanCreateFromValue_v = Definition::template CanCreateFromValue_v<V>;
+
+    // To be removed in future when glossary is refactored
+    operator const KeyType&() const { return key_; }
+    operator const std::string&() const { return key_; }
+
+    const KeyType& key() const { return key_; }
+
+    ValueType defaultValue() const noexcept { return keyDef<id_>().defaultValue(); }
+    const std::optional<std::string_view>& description() const noexcept { return keyDef<id_>().description(); }
+
+
+    std::string describe() const {
+        return std::string(key()) + std::string(" (") + util::typeToString<ValueType>() + std::string(", ")
+             + toString(tag) + std::string{")"};
+    }
+
+    // Static methods
+    template <typename Val, std::enable_if_t<CanCreateFromValue_v<Val>, bool> = true>
+    static decltype(auto) read(Val&& val) {
+        return Definition::read(std::forward<Val>(val));
+    }
+    template <typename Container>
+    static decltype(auto) write(const ValueType& val) {
+        return Definition::template write<Container>(val);
+    }
+
+    // Members
+    KeyType key_;
+};
+
+
+template <typename T>
+struct IsScopedKey {
+    static constexpr bool value = false;
+};
+
+template <auto id>
+struct IsScopedKey<ScopedKey<id>> {
+    static constexpr bool value = true;
+};
+
+template <typename T>
+inline constexpr bool IsScopedKey_v = IsScopedKey<T>::value;
+
+
+template <auto id>
+struct IsKeyDefinition<ScopedKey<id>> {
+    static constexpr bool value = true;
+};
+
+
+template <typename KDEF,
+          std::enable_if_t<IsKeyDefinition_v<std::decay_t<KDEF>> && !IsScopedKey_v<std::decay_t<KDEF>>, bool> = true>
+auto toScopedKey(const KDEF& kdef) {
+    return ScopedKey<std::decay_t<KDEF>::id>{kdef.key()};
+}
+
+template <typename KDEF,
+          std::enable_if_t<IsKeyDefinition_v<std::decay_t<KDEF>> && !IsScopedKey_v<std::decay_t<KDEF>>, bool> = true>
+auto toScopedKey(const KDEF& kdef, std::string_view scope) {
+    return ScopedKey<std::decay_t<KDEF>::id>{std::string(scope) + std::string("-") + std::string(kdef.key())};
+}
+
+template <typename KDEF,
+          std::enable_if_t<IsKeyDefinition_v<std::decay_t<KDEF>> && IsScopedKey_v<std::decay_t<KDEF>>, bool> = true>
+auto toScopedKey(const KDEF& kdef, std::string_view scope) {
+    constexpr auto id = std::decay_t<KDEF>::id;
+    return ScopedKey<id>{std::string(scope) + std::string("-") + std::string(keyDef<id>().key())};
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+// Static accessor to key sets with/without scope and prehashed (may be removed in favor of constexpr in C++20)
+template <typename EnumType>
+struct StaticKeySetStore {
+    static const auto& keys() {
+        static const auto keys
+            = util::map([&](const auto& kdef) { return toScopedKey(kdef); }, KeySetDescription<EnumType>::keyDefs);
+        return keys;
+    }
+
+    static const auto& scopedKeys() {
+        static const auto keys
+            = util::map([&](const auto& kdef) { return toScopedKey(kdef, KeySetDescriptionName_v<EnumType>); },
+                        KeySetDescription<EnumType>::keyDefs);
+        return keys;
+    }
+};
+
+
 template <auto keyId, typename Tup, std::enable_if_t<util::IsTuple_v<std::decay_t<Tup>>, bool> = true>
 decltype(auto) key(Tup&& keySet) {
     return keyUtils::getById<keyId>(std::forward<Tup>(keySet));
@@ -333,29 +506,12 @@ decltype(auto) key(Tup&& keySet) {
 
 template <auto keyId>
 decltype(auto) key() {
-    return key<keyId>(KeySetDescription<decltype(keyId)>::keys());
+    return key<keyId>(StaticKeySetStore<decltype(keyId)>::keys());
 }
 
 
 //-----------------------------------------------------------------------------
-
-template <typename KVD, std::enable_if_t<IsKeyValueDescription_v<std::decay_t<KVD>>, bool> = true>
-std::decay_t<KVD> applyScope(KVD&& kvd, const std::string_view scope) {
-    std::decay_t<KVD> newKvd{std::forward<KVD>(kvd)};
-    newKvd.key = std::string(scope) + std::string("-") + std::string(kvd.key);
-    return newKvd;
-}
-template <typename Tup,
-          std::enable_if_t<(util::IsTuple_v<std::decay_t<Tup>>
-                            && IsKeyValueDescription_v<std::decay_t<std::tuple_element_t<0, std::decay_t<Tup>>>>),
-                           bool>
-          = true>
-std::decay_t<Tup> applyScope(Tup&& tup, const std::string_view scope) {
-    return util::map([&](auto&& kvd) { return applyScope(std::forward<decltype(kvd)>(kvd), scope); },
-                     std::forward<Tup>(tup));
-}
-
-
+// KeySet implementation
 //-----------------------------------------------------------------------------
 
 enum class KeySetScope : std::uint64_t
@@ -381,7 +537,8 @@ public:
     This& scoped(std::optional<std::string> customScope = {}) {
         if (customScope) {
             scope_ = KeySetScope::Custom;
-            customScopedKeys_ = applyScope(GetKeyPolicy::getKeys(), *customScope);
+            customScopedKeys_
+                = util::map([&](const auto& kdef) { return toScopedKey(kdef, *customScope); }, GetKeyPolicy::getKeys());
         }
         else {
             scope_ = KeySetScope::Default;
@@ -425,13 +582,10 @@ private:
 
 template <typename EnumType>
 struct KeySetGetKeysPolicy {
-    static_assert(util::IsTuple_v<std::decay_t<decltype(KeySetDescription<EnumType>::keys())>>, "Expected a tuple");
+    static_assert(util::IsTuple_v<std::decay_t<decltype(StaticKeySetStore<EnumType>::keys())>>, "Expected a tuple");
 
-    static const auto& getKeys() { return KeySetDescription<EnumType>::keys(); }
-    static const auto& getScopedKeys() {
-        static const auto scopedKeys = applyScope(getKeys(), KeySetDescriptionName_v<EnumType>);
-        return scopedKeys;
-    }
+    static const auto& getKeys() { return StaticKeySetStore<EnumType>::keys(); }
+    static const auto& getScopedKeys() { return StaticKeySetStore<EnumType>::scopedKeys(); }
 };
 
 
@@ -448,7 +602,7 @@ struct CustomKeySetGetKeysPolicy {
 
     static const auto& getScopedKeys() {
         static const auto scopedKeys
-            = std::make_tuple(applyScope(key<Ids>(), KeySetDescriptionName_v<decltype(Ids)>)...);
+            = std::make_tuple(toScopedKey(keyDef<Ids>(), KeySetDescriptionName_v<decltype(Ids)>)...);
         return scopedKeys;
     }
 };
@@ -488,6 +642,7 @@ constexpr auto keySet() {
     return CustomKeySet<Ids...>{};
 }
 
+// This is the accossor that will be used to access individual keys
 template <auto keyId, typename KS, std::enable_if_t<IsKeySet_v<std::decay_t<KS>>, bool> = true>
 decltype(auto) key(KS&& keySet) {
     return keyUtils::getById<keyId>(std::forward<KS>(keySet).keys());
@@ -503,36 +658,17 @@ struct MissingValue {};
 // Operators for missing value ... use SFINAE to let this code remain header only
 // Also implement operator for other types to simplify comparison implementation for KeyValue
 template <typename MV1, typename MV2,
-          std::enable_if_t<(std::is_same_v<MV1, MissingValue> && std::is_same_v<MV2, MissingValue>), bool> = true>
+          std::enable_if_t<(std::is_same_v<MV1, MissingValue> || std::is_same_v<MV2, MissingValue>), bool> = true>
 bool operator==(const MV1& lhs, const MV2& rhs) noexcept {
-    return true;
-}
-template <typename MV1, typename MV2,
-          std::enable_if_t<(std::is_same_v<MV1, MissingValue> && !std::is_same_v<MV2, MissingValue>), bool> = true>
-bool operator==(const MV1& lhs, const MV2& rhs) noexcept {
-    return false;
-}
-template <typename MV1, typename MV2,
-          std::enable_if_t<(!std::is_same_v<MV1, MissingValue> && std::is_same_v<MV2, MissingValue>), bool> = true>
-bool operator==(const MV1& lhs, const MV2& rhs) noexcept {
-    return false;
+    return std::is_same_v<MV1, MissingValue> && std::is_same_v<MV2, MissingValue>;
 }
 
 template <typename MV1, typename MV2,
-          std::enable_if_t<(std::is_same_v<MV1, MissingValue> && std::is_same_v<MV2, MissingValue>), bool> = true>
+          std::enable_if_t<(std::is_same_v<MV1, MissingValue> || std::is_same_v<MV2, MissingValue>), bool> = true>
 bool operator!=(const MV1& lhs, const MV2& rhs) noexcept {
-    return false;
+    return !(lhs == rhs);
 }
-template <typename MV1, typename MV2,
-          std::enable_if_t<(std::is_same_v<MV1, MissingValue> && !std::is_same_v<MV2, MissingValue>), bool> = true>
-bool operator!=(const MV1& lhs, const MV2& rhs) noexcept {
-    return true;
-}
-template <typename MV1, typename MV2,
-          std::enable_if_t<(!std::is_same_v<MV1, MissingValue> && std::is_same_v<MV2, MissingValue>), bool> = true>
-bool operator!=(const MV1& lhs, const MV2& rhs) noexcept {
-    return true;
-}
+
 
 template <auto id_>
 struct KeyValue {
@@ -553,8 +689,8 @@ struct KeyValue {
     bool has() const { return !std::holds_alternative<MissingValue>(value); }
     bool holdsReference() const { return std::holds_alternative<const ValueType>(value); }
 
-    // Function to get the contained value if it's not missing - due to the possibility of containing a reference, only
-    // const& versions can get Optimized rvalue handling is achieved through visit
+    // Function to get the contained value if it's not missing - due to the possibility of containing a reference,
+    // only const& versions can get Optimized rvalue handling is achieved through visit
     const ValueType& get() const {
         return std::visit(eckit::Overloaded{
                               [&](const ValueType& val) -> const ValueType& { return val; },
@@ -661,16 +797,16 @@ decltype(auto) toMissingValue() {
     return KeyValue<id>{MissingValue{}};
 }
 
-template <typename KVD, std::enable_if_t<IsKeyValueDescription_v<KVD>, bool> = true>
+template <typename KVD, std::enable_if_t<IsKeyDefinition_v<KVD>, bool> = true>
 decltype(auto) toMissingValue(const KVD&) {
     return toMissingValue<KVD::id>();
 }
 
 
-template <typename KVD, std::enable_if_t<IsKeyValueDescription_v<KVD>, bool> = true>
+template <typename KVD, std::enable_if_t<IsKeyDefinition_v<KVD>, bool> = true>
 decltype(auto) toMissingOrDefaultValue(const KVD& kvd) {
-    if constexpr (KVD::tag == KVTag::Defaulted) {
-        return kvd.defaultValue ? KeyValue<KVD::id>{*kvd.defaultValue} : KeyValue<KVD::id>{MissingValue{}};
+    if constexpr (KVD::hasDefaultValueFunctor) {
+        return KeyValue<KVD::id>{kvd.defaultValue()};
     }
     return KeyValue<KVD::id>{MissingValue{}};
 }
@@ -681,6 +817,7 @@ decltype(auto) toMissingOrDefaultValue() {
 }
 
 
+// Creates a KeyValue and uses a reference_wrapper if possible
 template <auto id, typename V, std::enable_if_t<!IsKeyValue_v<std::decay_t<V>>, bool> = true>
 decltype(auto) toKeyValueRef(V&& v) {
     using KV = KeyValue<id>;
@@ -715,61 +852,33 @@ decltype(auto) toKeyValueRef(V&& v) {
     }
     return KV{};  // unreachable - prevent compiler warning
 }
-template <typename KVD, typename V, std::enable_if_t<IsKeyValueDescription_v<KVD>, bool> = true>
+template <typename KVD, typename V, std::enable_if_t<IsKeyDefinition_v<KVD>, bool> = true>
 decltype(auto) toKeyValueRef(const KVD&, V&& v) {
     return toKeyValueRef<KVD::id>(std::forward<V>(v));
 }
 
+// Creates a KeyValue and always copies values
 template <auto id, typename V, std::enable_if_t<!IsKeyValue_v<std::decay_t<V>>, bool> = true>
 decltype(auto) toKeyValue(V&& v) {
-    using KV = KeyValue<id>;
-    if constexpr (util::IsOptional_v<std::decay_t<V>>) {
-        if (v) {
-            return toKeyValue<id>(std::forward<V>(v).value());
-        }
-        else {
-            return KV{};
-        }
-    }
-    else {
-        if constexpr (std::is_same_v<std::decay_t<V>, MissingValue>) {
-            return KV{};
-        }
-        else if constexpr (std::is_same_v<std::decay_t<V>, typename KV::ValueType>) {
-            if constexpr (!std::is_lvalue_reference_v<V>) {
-                return KV{std::move(v)};
-            }
-            else {
-                return KV{v};
-            }
-        }
-        else {
-            if constexpr (!std::is_lvalue_reference_v<V>) {
-                return KV{KV::Description::read(std::move(v))};
-            }
-            else {
-                return KV{KV::Description::read(v)};
-            }
-        }
-    }
-    return KV{};  // unreachable - prevent compiler warning
+    auto res = toKeyValueRef<id>(std::forward<V>(v));
+    res.acquire();
+    return res;
 }
 
-
-//-----------------------------------------------------------------------------
-
-template <typename KVD, typename V, std::enable_if_t<IsKeyValueDescription_v<KVD>, bool> = true>
+template <typename KVD, typename V, std::enable_if_t<IsKeyDefinition_v<KVD>, bool> = true>
 decltype(auto) toKeyValue(const KVD&, V&& v) {
     return toKeyValue<KVD::id>(std::forward<V>(v));
 }
 
 
-// Takes a tuple of KeyValueDescription and creates an instance of the keyset with all fields set to missing
-template <typename DescTup,
-          std::enable_if_t<(util::IsTuple_v<std::decay_t<DescTup>>
-                            && IsKeyValueDescription_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
-                           bool>
-          = true>
+//-----------------------------------------------------------------------------
+
+
+// Takes a tuple of KeyDefinition and creates an instance of the keyset with all fields set to missing
+template <typename DescTup, std::enable_if_t<(util::IsTuple_v<std::decay_t<DescTup>>
+                                              && IsKeyDefinition_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
+                                             bool>
+                            = true>
 decltype(auto) reify(DescTup&& tup) {
     return util::map([&](const auto& kvd) { return toMissingValue(kvd); }, std::forward<DescTup>(tup));
 }
@@ -923,7 +1032,7 @@ namespace multio::datamod {
 
 // Takes a tuple of KeyValue and verifies that all required keys are set
 template <typename KVD, typename KV,
-          std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>), bool> = true>
+          std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>), bool> = true>
 void validate(const KVD&, const KV& kv) {
     // Only optional tagged keys can be missing
     if constexpr (KVD::tag != KVTag::Optional) {
@@ -942,12 +1051,12 @@ void validate(const KV& kv) {
 
 // Takes a tuple of KeyValue and verifies that all required keys are set
 template <typename KVD, typename KV,
-          std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>), bool> = true>
+          std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>), bool> = true>
 KV& alter(const KVD& kvd, KV& kv) {
     // Only optional tagged keys can be missing
-    if constexpr (KVD::tag == KVTag::Defaulted) {
-        if (kv.isMissing() && kvd.defaultValue) {
-            kv.set(*kvd.defaultValue);
+    if constexpr (KVD::hasDefaultValueFunctor) {
+        if (kv.isMissing()) {
+            kv.set(kvd.defaultValue());
         }
     }
     return kv;
@@ -1032,10 +1141,9 @@ struct KeyValueReader;
 
 template <typename Container>
 struct BaseKeyValueReader {
-    template <
-        typename KVD, typename Cont_,
-        std::enable_if_t<(IsKeyValueDescription_v<KVD> && std::is_base_of_v<Cont_, std::decay_t<Container>>), bool>
-        = true>
+    template <typename KVD, typename Cont_,
+              std::enable_if_t<(IsKeyDefinition_v<KVD> && std::is_base_of_v<Cont_, std::decay_t<Container>>), bool>
+              = true>
     static decltype(auto) getByValue(const KVD& kvd, Cont_&& c) {
         auto ret = KeyValueReader<Container>::getByRef(kvd, std::forward<Cont_>(c));
         acquire(ret);
@@ -1054,7 +1162,7 @@ struct KeyValueReader<std::tuple<KeyValue<id>, KVS...>> : BaseKeyValueReader<std
     using Base::getByValue;
 
     template <typename KVD, typename KVTup,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && util::IsTuple_v<std::decay_t<KVTup>>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && util::IsTuple_v<std::decay_t<KVTup>>
                                 && IsKeyValue_v<std::tuple_element_t<0, std::decay_t<KVTup>>>),
                                bool>
               = true>
@@ -1070,7 +1178,7 @@ struct KeyValueReader<KeyValueSet<KeySet_>> : BaseKeyValueReader<KeyValueSet<Key
     using Base::getByValue;
 
     template <typename KVD, typename KVS,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValueSet_v<std::decay_t<KVS>>), bool>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValueSet_v<std::decay_t<KVS>>), bool>
               = true>
     static decltype(auto) getByRef(const KVD& kvd, KVS&& kv) {
         return BaseTup::getByRef(kvd, std::forward<KVS>(kv).values);
@@ -1084,7 +1192,7 @@ struct KeyValueReader<KeyValueSet<KeySet_>> : BaseKeyValueReader<KeyValueSet<Key
 
 
 // Methods to read/write tuples of KeyValues to specific types (i.e. from Metadata)
-// set(KeyValueDescription, KeyValue, Container)
+// set(KeyDefinition, KeyValue, Container)
 template <typename Container>
 struct KeyValueWriter;
 
@@ -1096,7 +1204,7 @@ struct KeyValueWriter;
 template <auto id, typename... KVS>
 struct KeyValueWriter<std::tuple<KeyValue<id>, KVS...>> {
     template <typename KVD, typename KV, typename KVTup,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>
                                 && util::IsTuple_v<std::decay_t<KVTup>>
                                 && IsKeyValue_v<std::tuple_element_t<0, std::decay_t<KVTup>>>),
                                bool>
@@ -1111,7 +1219,7 @@ struct KeyValueWriter<KeyValueSet<KeySet_>> {
     using BaseTup = KeyValueWriter<typename KeyValueSet<KeySet_>::TupleType>;
 
     template <typename KVD, typename KV, typename KVS,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV>>
                                 && IsKeyValueSet_v<std::decay_t<KVS>>),
                                bool>
               = true>
@@ -1130,10 +1238,10 @@ decltype(auto) reify(KS&& ks) {
 
 namespace details {
 
-// Takes a tuple of KeyValueDescription and a container from which to read/create an object from
+// Takes a tuple of KeyDefinition and a container from which to read/create an object from
 template <typename DescTup, typename Container,
           std::enable_if_t<(util::IsTuple_v<std::decay_t<DescTup>>
-                            && IsKeyValueDescription_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
+                            && IsKeyDefinition_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
                            bool>
           = true>
 decltype(auto) read(DescTup&& tup, Container&& c) {
@@ -1145,7 +1253,7 @@ decltype(auto) read(DescTup&& tup, Container&& c) {
 }
 template <typename DescTup, typename Container,
           std::enable_if_t<(util::IsTuple_v<std::decay_t<DescTup>>
-                            && IsKeyValueDescription_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
+                            && IsKeyDefinition_v<std::tuple_element_t<0, std::decay_t<DescTup>>>),
                            bool>
           = true>
 decltype(auto) readValue(DescTup&& tup, Container&& c) {
@@ -1179,7 +1287,7 @@ decltype(auto) readValue(KS&& ks, Container&& c) {
 //-----------------------------------------------------------------------------
 
 
-// Takes a tuple of KeyValueDescription and a container from which to read/create an object from
+// Takes a tuple of KeyDefinition and a container from which to read/create an object from
 template <
     typename KVTup, typename Container,
     std::enable_if_t<
@@ -1239,7 +1347,7 @@ std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<Ke
                 os << ", ";
             }
 
-            os << key.key << "=";
+            os << key.key() << "=";
             if (value.isMissing()) {
                 os << "<MISSING>";
             }

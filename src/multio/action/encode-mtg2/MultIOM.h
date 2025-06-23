@@ -21,6 +21,7 @@
 #include "eccodes.h"
 #include "metkit/codes/CodesHandleDeleter.h"
 #include "multio/action/encode-mtg2/Options.h"
+#include "multio/datamod/DataModelling.h"
 #include "multiom/api/c/api.h"
 
 namespace multio::action {
@@ -115,14 +116,14 @@ namespace multio {
 template <>
 struct datamod::KeyValueWriter<action::MultiOMDict> {
     template <typename KVD, typename KV_,
-              std::enable_if_t<(IsKeyValueDescription_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>), bool>
+              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>), bool>
               = true>
     static void set(const KVD& kvd, KV_&& kv, action::MultiOMDict& md) {
         using KV = std::decay_t<KV_>;
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key, KVD::template write<action::MultiOMDict>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(), KVD::template write<action::MultiOMDict>(std::forward<decltype(v)>(v)));
             }});
     }
 };
