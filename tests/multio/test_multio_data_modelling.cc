@@ -51,7 +51,7 @@ enum class TestKeys2 : std::uint64_t
 };
 
 template <>
-struct multio::datamod::KeySetDescription<TestKeys2> {
+struct multio::datamod::KeySetDefinition<TestKeys2> {
     static constexpr std::string_view name = "test2";
 
     static constexpr auto keyDefs

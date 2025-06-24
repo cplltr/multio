@@ -114,16 +114,19 @@ struct MultiOMDict {
 namespace multio {
 
 template <>
-struct datamod::KeyValueWriter<action::MultiOMDict> {
+struct datamod::KeyValueWriter<action::MultiOMDict> : BaseKeyValueWriter<action::MultiOMDict> {
+    using Base = BaseKeyValueWriter<action::MultiOMDict>;
+    using Base::set;
+
     template <typename KVD, typename KV_,
-              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>), bool>
-              = true>
+              std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV_>>), bool> = true>
     static void set(const KVD& kvd, KV_&& kv, action::MultiOMDict& md) {
         using KV = std::decay_t<KV_>;
+        using RW = typename KVD::ReadWrite;
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key(), KVD::template write<action::MultiOMDict>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(), RW::template write<action::MultiOMDict>(std::forward<decltype(v)>(v)));
             }});
     }
 };

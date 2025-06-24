@@ -32,29 +32,31 @@ template <>
 struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseMetadata> {
     using Base = BaseKeyValueReader<message::BaseMetadata>;
     using Base::getByValue;
+    using Base::getByRef;
 
-    template <typename KVD, typename MD,
-              std::enable_if_t<
-                  (IsKeyDefinition_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
-              = true>
-    static decltype(auto) getByRef(const KVD& kvd, MD&& md) {
+    template <
+        typename KVD, typename MD,
+        std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
+        = true>
+    static KeyValueFromKey_t<KVD>  getByRef(const KVD& kvd, MD&& md) {
+        using RW = typename KVD::ReadWrite;
         if (auto search = std::forward<MD>(md).find(kvd.key()); search != md.end()) {
             auto visitor = [&](auto&& v) {
                 if constexpr (std::is_same_v<message::Null, std::decay_t<decltype(v)>>) {
                     if constexpr (KVD::tag == KVTag::Required) {
                         std::ostringstream oss;
-                        oss << "Required Key " << kvd.describe() << " is null in metadata " << md << std::endl;
+                        oss << "Required Key " << kvd.keyInfo() << " is null in metadata " << md << std::endl;
                         throw DataModellingException(oss.str(), Here());
                     }
                     return toMissingOrDefaultValue(kvd);
                 }
-                else if constexpr (KVD::template CanCreateFromValue_v<decltype(v)>) {
+                else if constexpr (RW::template CanCreateFromValue_v<decltype(v)>) {
                     return toKeyValueRef(kvd, std::forward<decltype(v)>(v));
                 }
                 else {
                     std::ostringstream oss;
                     oss << "Unsupported type " << util::typeToString<std::decay_t<decltype(v)>>() << " for key "
-                        << kvd.describe() << " in metadata: " << md << std::endl;
+                        << kvd.keyInfo() << " in metadata: " << md << std::endl;
                     throw DataModellingException(oss.str(), Here());
                 }
                 return toMissingValue(kvd);  // unreachable
@@ -70,7 +72,7 @@ struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseM
         }
         if constexpr (KVD::tag == KVTag::Required) {
             std::ostringstream oss;
-            oss << "Missing required key " << kvd.describe() << " in metadata " << md << std::endl;
+            oss << "Missing required key " << kvd.keyInfo() << " in metadata " << md << std::endl;
             throw DataModellingException(oss.str(), Here());
         }
         return toMissingOrDefaultValue(kvd);
@@ -90,18 +92,22 @@ struct KeyValueReader<message::Metadata> : KeyValueReader<message::BaseMetadata>
 //-----------------------------------------------------------------------------
 
 template <>
-struct KeyValueWriter<message::BaseMetadata> {
+struct KeyValueWriter<message::BaseMetadata>: BaseKeyValueWriter<message::BaseMetadata> {
+    using Base = BaseKeyValueWriter<message::BaseMetadata>;
+    using Base::set;
+    
     template <typename KVD, typename KV_, typename MD,
-              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
+              std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>),
                                bool>
               = true>
     static void set(const KVD& kvd, KV_&& kv, MD& md) {
+        using RW = typename KVD::ReadWrite;
         // TODO think about handling missing value by setting Null ?
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key(), KVD::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(), RW::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
             }});
     }
 };
@@ -121,6 +127,7 @@ template <>
 struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configuration> {
     using Base = BaseKeyValueReader<eckit::Configuration>;
     using Base::getByValue;
+    using Base::getByRef;
 
 
     template <typename T, typename Conf, typename Key>
@@ -169,15 +176,16 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
     }
 
 
-    template <typename KVD, typename Conf,
-              std::enable_if_t<
-                  (IsKeyDefinition_v<KVD> && std::is_base_of_v<eckit::Configuration, std::decay_t<Conf>>), bool>
-              = true>
+    template <
+        typename KVD, typename Conf,
+        std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<eckit::Configuration, std::decay_t<Conf>>), bool>
+        = true>
     static decltype(auto) getByRef(const KVD& kvd, Conf&& conf) {
+        using RW = typename KVD::ReadWrite;
         if (!conf.has(kvd.key())) {
             if constexpr (KVD::tag == KVTag::Required) {
                 std::ostringstream oss;
-                oss << "Configuration has no key " << kvd.describe() << ": " << conf << std::endl;
+                oss << "Configuration has no key " << kvd.keyInfo() << ": " << conf << std::endl;
                 throw DataModellingException(oss.str(), Here());
             }
             return toMissingOrDefaultValue(kvd);
@@ -186,36 +194,37 @@ struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configur
         if (conf.isNull(kvd.key())) {
             if constexpr (KVD::tag == KVTag::Required) {
                 std::ostringstream oss;
-                oss << "Key \"" << kvd.key() << "\" in configuration should have a non-null value: " << conf << std::endl;
+                oss << "Key \"" << kvd.key() << "\" in configuration should have a non-null value: " << conf
+                    << std::endl;
                 throw DataModellingException(oss.str(), Here());
             }
             return toMissingOrDefaultValue(kvd);
         }
 
 
-        return visitNonNullValue(kvd.key(), conf,
-                                 eckit::Overloaded{[&]() {
-                                                       std::ostringstream oss;
-                                                       oss << "Unsupported value for key " << kvd.describe()
-                                                           << " in configuration: " << conf << std::endl;
-                                                       throw DataModellingException(oss.str(), Here());
+        return visitNonNullValue(
+            kvd.key(), conf,
+            eckit::Overloaded{[&]() {
+                                  std::ostringstream oss;
+                                  oss << "Unsupported value for key " << kvd.keyInfo() << " in configuration: " << conf
+                                      << std::endl;
+                                  throw DataModellingException(oss.str(), Here());
 
-                                                       return toMissingValue(kvd);  // unreachable
-                                                   },
-                                                   [&](auto tt) {
-                                                       using Type = typename std::decay_t<decltype(tt)>::type;
-                                                       if constexpr (KVD::template CanCreateFromValue_v<Type>) {
-                                                           return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key()));
-                                                       }
-                                                       else {
-                                                           std::ostringstream oss;
-                                                           oss << "Unsupported type " << util::typeToString<Type>()
-                                                               << " for key " << kvd.describe()
-                                                               << " in configuration: " << conf << std::endl;
-                                                           throw DataModellingException(oss.str(), Here());
-                                                       }
-                                                       return toMissingValue(kvd);  // unreachable
-                                                   }});
+                                  return toMissingValue(kvd);  // unreachable
+                              },
+                              [&](auto tt) {
+                                  using Type = typename std::decay_t<decltype(tt)>::type;
+                                  if constexpr (RW::template CanCreateFromValue_v<Type>) {
+                                      return toKeyValue(kvd, getValueByType<Type>(conf, kvd.key()));
+                                  }
+                                  else {
+                                      std::ostringstream oss;
+                                      oss << "Unsupported type " << util::typeToString<Type>() << " for key "
+                                          << kvd.keyInfo() << " in configuration: " << conf << std::endl;
+                                      throw DataModellingException(oss.str(), Here());
+                                  }
+                                  return toMissingValue(kvd);  // unreachable
+                              }});
 
 
         return toMissingValue(kvd);  // unreachable - prevent compiler warning
@@ -236,9 +245,12 @@ struct KeyValueReader<eckit::LocalConfiguration> : KeyValueReader<eckit::Configu
 //-----------------------------------------------------------------------------
 
 template <>
-struct KeyValueWriter<eckit::LocalConfiguration> {
+struct KeyValueWriter<eckit::LocalConfiguration>: BaseKeyValueWriter<eckit::LocalConfiguration>  {
+    using Base = BaseKeyValueWriter<eckit::LocalConfiguration>;
+    using Base::set;
+    
     template <typename KVD, typename KV_, typename LConf,
-              std::enable_if_t<(IsKeyDefinition_v<std::decay_t<KVD>> && IsKeyValue_v<std::decay_t<KV_>>
+              std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<eckit::LocalConfiguration, std::decay_t<LConf>>),
                                bool>
               = true>
@@ -247,7 +259,8 @@ struct KeyValueWriter<eckit::LocalConfiguration> {
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                md.set(kvd.key(), KVD::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
+                md.set(kvd.key(),
+                       KVD::ReadWrite::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
             }});
     }
 };
