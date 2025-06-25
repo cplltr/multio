@@ -38,7 +38,8 @@ enum class Repres : std::size_t
     GG,
     LL,
     SH,
-    HEALPix          // We added it here because we use repres as an intermediate type. Officially healpix is not mapped to any of the others...
+    HEALPix  // We added it here because we use repres as an intermediate type. Officially healpix is not mapped to any
+             // of the others...
 };
 
 std::ostream& operator<<(std::ostream&, const TimeDuration&);
@@ -399,15 +400,13 @@ enum class GeoHEALPix : std::uint64_t
     LongitudeOfFirstGridPointInDegrees,
 };
 
-MULTIO_KEY_SET_DESCRIPTION(GeoHEALPix,     //
-                           "geo-sh",  //
-                                      //
-                           describeKeyValue<GeoHEALPix::NSide, std::int64_t, KVTag::Required>(
-                               "nside"),
-                           describeKeyValue<GeoHEALPix::OrderingConvention, std::string, KVTag::Optional>(
-                               "orderingConvention"),
-                           describeKeyValue<GeoHEALPix::LongitudeOfFirstGridPointInDegrees, double, KVTag::Optional>(
-                               "longitudeOfFirstGridPointInDegrees"));
+MULTIO_KEY_SET_DESCRIPTION(
+    GeoHEALPix,  //
+    "geo-sh",    //
+                 //
+    KeyDef<GeoHEALPix::NSide, std::int64_t>{"nside"},
+    KeyDef<GeoHEALPix::OrderingConvention, std::string>{"orderingConvention"}.tagOptional(),
+    KeyDef<GeoHEALPix::LongitudeOfFirstGridPointInDegrees, double>{"longitudeOfFirstGridPointInDegrees"}.tagOptional());
 
 
 //-----------------------------------------------------------------------------
@@ -425,11 +424,11 @@ decltype(auto) withScopedGeometryKeySet(const KVS& kvs, Func&& func) {
             std::string scope = std::string("geo-") + grid.get();
             std::forward<Func>(func)(Repres::GG, scope, keySet<GeoGG>().scoped(scope));
             return;
+        }
         case Repres::HEALPix: {
             std::string scope = std::string("geo-") + grid.get();
             std::forward<Func>(func)(Repres::HEALPix, scope, keySet<GeoHEALPix>().scoped(scope));
             return;
-        }
         }
         case Repres::SH: {
             std::string scope = std::string("geo-TCO") + std::to_string(trunc.get());
