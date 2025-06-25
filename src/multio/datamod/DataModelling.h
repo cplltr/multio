@@ -1366,9 +1366,10 @@ struct BaseKeyValueWriter {
 // Writing from keysets
 //-----------------------------------------------------------------------------
 
-template <auto id, typename... KVS>
-struct KeyValueWriter<std::tuple<KeyValue<id>, KVS...>> : BaseKeyValueWriter<std::tuple<KeyValue<id>, KVS...>> {
-    using Base = BaseKeyValueWriter<std::tuple<KeyValue<id>, KVS...>>;
+template <auto otherId, typename... KVS>
+struct KeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>>
+    : BaseKeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>> {
+    using Base = BaseKeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>>;
     using Base::set;
 
     template <auto id, typename KVD, typename KV, typename KVTup,
@@ -1507,13 +1508,16 @@ Container write(KVS&& kvs) {
 
 //-----------------------------------------------------------------------------
 
+
 // Printing something readable to ostream
 template <typename KeySet_>
 std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<KeySet_>& kvs) {
     os << "{";
     bool first = true;
-    util::forEach(
+    multio::util::forEach(
         [&](const auto& key, const auto& value) {
+            using ReadWrite = typename std::decay_t<decltype(value)>::ReadWrite;
+
             if (first) {
                 first = false;
             }
@@ -1526,16 +1530,13 @@ std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<Ke
                 os << "<MISSING>";
             }
             else {
-                os << value.get();
+                os << ReadWrite::template write<std::ostream>(value.get());
             }
         },
         kvs);
     os << "}";
     return os;
 }
-
-
-//-----------------------------------------------------------------------------
 
 }  // namespace multio::datamod
 

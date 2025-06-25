@@ -8,13 +8,12 @@
  * does it submit to any jurisdiction.
  */
 
-#include "multio/datamod/MarsMiscGeo.h"
+#include "multio/datamod/MarsTypes.h"
 
 #include "eckit/utils/Overloaded.h"
 #include "metkit/mars/Param.h"
 
 #include "multio/datamod/DataModellingException.h"
-#include "multio/message/MetadataException.h"
 
 #include <regex>
 
@@ -65,7 +64,7 @@ TimeDuration ReadSpec<TimeDuration>::read(const std::string& val) {
 }
 
 
-std::string WriteSpec<Repres>::write(Repres v) noexcept {
+std::string WriteSpec<Repres>::write(Repres v) {
     switch (v) {
         case Repres::GG:
             return "gg";

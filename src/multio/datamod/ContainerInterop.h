@@ -255,7 +255,6 @@ struct KeyValueWriter<eckit::LocalConfiguration>: BaseKeyValueWriter<eckit::Loca
                                bool>
               = true>
     static void set(const KVD& kvd, KV_&& kv, LConf& md) {
-        using KV = std::decay_t<KV_>;
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {

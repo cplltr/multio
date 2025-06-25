@@ -150,8 +150,9 @@ list( APPEND multio_datamod_srcs
     datamod/ContainerInterop.h
     datamod/Glossary.cc
     datamod/Glossary.h
-    datamod/MarsMiscGeo.cc
     datamod/MarsMiscGeo.h
+    datamod/MarsTypes.cc
+    datamod/MarsTypes.h
 )
 
 list( APPEND multio_server_srcs
