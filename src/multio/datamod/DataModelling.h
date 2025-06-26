@@ -246,8 +246,8 @@ struct BaseKeyDef {
 
     // Members - all "simple" to be constexpr constructable. Would be more relaxed with C++20, but it's all we need
     std::string_view key_;
-    std::optional<std::string_view> description_{};
-    DefaultValueFunctor defaultFunctor_{};
+    std::optional<std::string_view> description_;
+    DefaultValueFunctor defaultFunctor_;
 };
 
 
