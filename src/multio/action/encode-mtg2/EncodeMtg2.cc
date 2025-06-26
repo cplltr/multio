@@ -17,8 +17,8 @@
 
 #include "multio/LibMultio.h"
 #include "multio/action/encode-mtg2/AtlasGeoSetter.h"
+#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/action/encode-mtg2/EncoderCache.h"
-#include "multio/action/encode-mtg2/MultIOM.h"
 #include "multio/action/encode-mtg2/Options.h"
 #include "multio/config/PathConfiguration.h"
 #include "multio/datamod/Glossary.h"
@@ -33,10 +33,7 @@ using message::Peer;
 
 
 EncodeMtg2::EncodeMtg2(const ComponentConfiguration& compConf) :
-    ChainedAction{compConf},
-    options_{datamod::read(EncodeOptionsKeySet{}, compConf.parsedConfig())},
-    encoder_{MultiOMEncoder::make(options_, compConf)},
-    cache_{EncoderCache::make(options_, compConf)} {}
+    ChainedAction{compConf}, conf_{datamod::read(EncodeMtg2KeySet{}, compConf.parsedConfig())}, cache_{conf_} {}
 
 
 void EncodeMtg2::executeImpl(Message msg) {
@@ -47,13 +44,12 @@ void EncodeMtg2::executeImpl(Message msg) {
 
     auto& md = msg.metadata();
 
-
     // TODO MIVAL : to be removed
     // std::cout << "Encoding message with metadata: " << md << std::endl;
 
     // TO encoding
-    MultiOMDict mars{MultiOMDictKind::MARS};
-    MultiOMDict par{MultiOMDictKind::Parametrization};
+    MultIOMDict mars{MultIOMDictKind::MARS};
+    MultIOMDict par{MultIOMDictKind::Parametrization};
 
     {
         using namespace datamod;
@@ -68,68 +64,64 @@ void EncodeMtg2::executeImpl(Message msg) {
         write(miscKeys, par);
 
         // Handle geometry
-        withScopedGeometryKeySet(marsKeys, [&](Repres repres, std::string scope, auto geoKeySet) {
+        auto geo = withScopedGeometryKeySet(marsKeys, [&](Repres repres, std::string scope, auto geoKeySet) {
             const auto& grid = key<MarsKeys::GRID>(marsKeys);
             if (!grid.isMissing()) {
                 const auto& global = message::Parametrization::instance().get();
-                const auto& geoFromAtlas = key<EncodeOptions::GeoFromAtlas>(options_);
+                const auto& geoFromAtlas = key<EncodeMtg2Def::GeoFromAtlas>(conf_);
                 if (geoFromAtlas.get() && (global.find(scope) == global.end())) {
                     extract::AtlasGeoSetter::handleGrid(scope, grid.get());
                 }
             }
 
-            MultiOMDict geom{([&]() {
+            MultIOMDict geom{([&]() {
                 switch (repres) {
                     case Repres::GG:
-                        return MultiOMDictKind::ReducedGG;
+                        return MultIOMDictKind::ReducedGG;
                     case Repres::HEALPix:
-                        return MultiOMDictKind::HEALPix;
+                        return MultIOMDictKind::HEALPix;
                     case Repres::LL:
-                        return MultiOMDictKind::RegularLL;
+                        return MultIOMDictKind::RegularLL;
                     case Repres::SH:
-                        return MultiOMDictKind::SH;
+                        return MultIOMDictKind::SH;
                 }
                 throw EncodeMtg2Exception("unkown repres", Here());
             })()};
 
             auto geoKeys = read(geoKeySet, md);
             write(geoKeys.unscoped(), geom);
-            par.set_geometry(std::move(geom));
+            return geom;
         });
 
 
         // @Mirco here we get the cached raw encoder
-        MultiOMRawEncoder& rawEncoder = cache_.getEncoder(marsKeys, mars);
-
-        auto& payload = msg.payload();
+        std::unique_ptr<util::MioGribHandle> sample = cache_.getSample(marsKeys, mars, par, geo);
 
         executeNext(dispatchPrecisionTag(msg.precision(), [&](auto pt) {
             using Precision = typename decltype(pt)::type;
 
-            // @Mirco here we would call the rawEncoder
-            auto rawGrib2Handle = encoder_.encode(mars, par, static_cast<const Precision*>(payload.data()),
-                                                  payload.size() / sizeof(Precision));
+            auto beg = reinterpret_cast<const Precision*>(msg.payload().data());
+            sample->setDataValues(beg, msg.globalSize());
 
-            // Create non-owning grib handle by passing by reference
-            util::MioGribHandle gribHandle{*rawGrib2Handle.get()};
+            // msg.header().acquireMetadata();
+            // const auto& metadata = msg.metadata();
+            // auto offsetByValue = metadata.getOpt<double>("offsetValuesBy");
+            // if (offsetByValue) {
+            //     setValue("offsetValuesBy", *offsetByValue);
+            // }
 
-            // Initialize buffer with length
-            eckit::Buffer buf{gribHandle.length()};
-            gribHandle.write(buf);
-
+            eckit::Buffer buf{sample->length()};
+            sample->write(buf);
 
             return Message{Message::Header{Message::Tag::Field, Peer{msg.source().group()}, Peer{msg.destination()}},
                            std::move(buf)};
         }));
     }
-
-    // TODO MIVAL : to be removed
-    // std::cout << "Exit encoding with metadata: " << md << std::endl;
 }
 
 void EncodeMtg2::print(std::ostream& os) const {
     os << "EncodeMtg2(";
-    os << "options=" << options_;
+    os << "options=" << conf_;
     os << ")";
 }
 

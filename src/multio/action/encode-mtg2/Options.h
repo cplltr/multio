@@ -29,7 +29,7 @@
 namespace multio {
 
 namespace action {
-enum class EncodeOptions : std::uint64_t
+enum class EncodeMtg2Def : std::uint64_t
 {
     KnowledgeRoot,
     SamplesPath,
@@ -41,31 +41,31 @@ enum class EncodeOptions : std::uint64_t
 
 namespace datamod {
 
-using action::EncodeOptions;
+using action::EncodeMtg2Def;
 
-MULTIO_KEY_SET_DESCRIPTION(EncodeOptions,                                                                       //
+MULTIO_KEY_SET_DESCRIPTION(EncodeMtg2Def,                                                                       //
                            "encode-mtg2",                                                                       //
                                                                                                                 //
-                           KeyDef<EncodeOptions::KnowledgeRoot, std::string>{"knowledge-root"}.tagDefaulted(),  //
-                           KeyDef<EncodeOptions::SamplesPath, std::string>{"samples-path"}.tagDefaulted(),      //
-                           KeyDef<EncodeOptions::EncodingRules, std::string>{"encoding-rules"}.tagDefaulted(),  //
-                           KeyDef<EncodeOptions::MappingRules, std::string>{"mapping-rules"}.tagDefaulted(),    //
-                           KeyDef<EncodeOptions::GeoFromAtlas, bool>{"geo-from-atlas"}.withDefault(false))
+                           KeyDef<EncodeMtg2Def::KnowledgeRoot, std::string>{"knowledge-root"}.tagDefaulted(),  //
+                           KeyDef<EncodeMtg2Def::SamplesPath, std::string>{"samples-path"}.tagDefaulted(),      //
+                           KeyDef<EncodeMtg2Def::EncodingRules, std::string>{"encoding-rules"}.tagDefaulted(),  //
+                           KeyDef<EncodeMtg2Def::MappingRules, std::string>{"mapping-rules"}.tagDefaulted(),    //
+                           KeyDef<EncodeMtg2Def::GeoFromAtlas, bool>{"geo-from-atlas"}.withDefault(false))
 
 
 template <>
-struct KeySetAlter<KeySet<EncodeOptions>> {
-    static void alter(KeyValueSet<KeySet<EncodeOptions>>& opts) {
+struct KeySetAlter<KeySet<EncodeMtg2Def>> {
+    static void alter(KeyValueSet<KeySet<EncodeMtg2Def>>& opts) {
         using namespace datamod;
-        const auto& root = key<EncodeOptions::KnowledgeRoot>(opts)
+        const auto& root = key<EncodeMtg2Def::KnowledgeRoot>(opts)
                                .withDefault([]() { return multio::LibMultio::instance().libraryHome(); })
                                .get();
 
-        key<EncodeOptions::SamplesPath>(opts).withDefault([&]() { return root + "/share/multiom/samples"; });
-        key<EncodeOptions::MappingRules>(opts).withDefault(
+        key<EncodeMtg2Def::SamplesPath>(opts).withDefault([&]() { return root + "/share/multiom/samples"; });
+        key<EncodeMtg2Def::MappingRules>(opts).withDefault(
             [&]() { return root + "/share/multiom/mappings/mapping-rules.yaml"; });
-        key<EncodeOptions::EncodingRules>(opts).withDefault(
-            [&]() { return root + "/share/multiom/encodings/encoding-rules.yaml"; });
+        key<EncodeMtg2Def::EncodingRules>(opts).withDefault(
+            [&]() { return root + "/share/multiom/encodings/encoding-rules-nested.yaml"; });
 
         acquire(opts);
     }
@@ -76,18 +76,10 @@ struct KeySetAlter<KeySet<EncodeOptions>> {
 
 namespace action {
 
-using EncodeOptionsKeySet = datamod::KeySet<EncodeOptions>;
-using EncodeOptionsKeyValueSet = datamod::KeyValueSet<EncodeOptionsKeySet>;
+using EncodeMtg2KeySet = datamod::KeySet<EncodeMtg2Def>;
+using EncodeMtg2Conf = datamod::KeyValueSet<EncodeMtg2KeySet>;
 
 //---------------------------------------------------------------------------------------------------------------------
-
-class EncodeMtg2Exception : public eckit::Exception {
-public:
-    EncodeMtg2Exception(const std::string& reason, const eckit::CodeLocation& location = eckit::CodeLocation());
-};
-
-//---------------------------------------------------------------------------------------------------------------------
-
 
 }  // namespace action
 }  // namespace multio

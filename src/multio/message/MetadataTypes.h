@@ -16,6 +16,7 @@
 
 #include "multio/util/PrehashedKey.h"
 #include "multio/util/TypeTraits.h"
+#include "multio/util/TypeToString.h"
 
 #include "eckit/log/JSON.h"
 

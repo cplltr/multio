@@ -37,8 +37,7 @@ private:
 
     void print(std::ostream& os) const override;
 
-    EncodeOptionsKeyValueSet options_;
-    MultiOMEncoder encoder_;  // @Mirco this may be removed or used optionally
+    EncodeMtg2Conf conf_;
     EncoderCache cache_;
 };
 

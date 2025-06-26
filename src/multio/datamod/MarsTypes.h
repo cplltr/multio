@@ -17,6 +17,7 @@
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
 #include "multio/util/TypeTraits.h"
+#include "multio/util/TypeToString.h"
 #include "multio/util/VariantHelpers.h"
 
 #include <chrono>

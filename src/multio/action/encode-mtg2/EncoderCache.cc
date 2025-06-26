@@ -9,44 +9,73 @@
  */
 
 #include "multio/action/encode-mtg2/EncoderCache.h"
+#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/action/encode-mtg2/Options.h"
+#include "multio/action/encode-mtg2/multiom/MultIOMDict.h"
+#include "multio/action/encode-mtg2/multiom/MultIOMRules.h"
 #include "multio/datamod/MarsMiscGeo.h"
+#include "multio/util/MioGribHandle.h"
 
 namespace multio::action {
 
-EncoderCache EncoderCache::make(const EncodeOptionsKeyValueSet& opts, const ComponentConfiguration& conf) {
-    MultiOMDict optDict(MultiOMDictKind::Options);
+namespace {
 
-    using namespace datamod;
-
-    // Select a subset of the options (excluding knowledge-root) and set them to the opt dict
-    write(read(keySet<EncodeOptions::SamplesPath, EncodeOptions::MappingRules, EncodeOptions::EncodingRules>(), opts),
-          optDict);
-
-    // TODO -- this hack will just be removed through
-    const auto& knowledgeRoot = key<EncodeOptions::KnowledgeRoot>(opts);
-    if (!knowledgeRoot.isMissing()) {
-        setenv("IFS_INSTALL_DIR", knowledgeRoot.get().c_str(), 0);
+std::unique_ptr<util::MioGribHandle> loadSample(const std::string& sample) {
+    codes_handle* h = codes_handle_new_from_samples(nullptr, sample.c_str());
+    if (h == nullptr) {
+        throw EncodeMtg2Exception(std::string("Unable to load eccodes sample: ") + sample, Here());
     }
-
-
-    // TODO read kind from options???
-    return EncoderCache(MultiOMEncoderKind::Cached, std::move(optDict));
+    return std::make_unique<util::MioGribHandle>(codes_handle_new_from_samples(nullptr, sample.c_str()));
 }
 
-EncoderCache::EncoderCache(MultiOMEncoderKind kind, MultiOMDict&& options) :
-    kind_{kind}, options_{std::move(options)} {}
+}  // namespace
 
-MultiOMRawEncoder& EncoderCache::getEncoder(const datamod::MarsKeyValueSet& marsKeys, MultiOMDict& mars) {
+
+EncoderCache::EncoderCache(const EncodeMtg2Conf& opts) : EncoderCache(opts, MultIOMDict::makeOptions(opts)) {}
+
+
+EncoderCache::EncoderCache(const EncodeMtg2Conf& conf, MultIOMDict&& options) :
+    conf_{conf}, options_{std::move(options)}, rules_{options_, conf_}, baseSample_{loadSample("sample")} {}
+
+
+EncoderCache::CacheEntry& EncoderCache::makeOrGetEntry(const datamod::MarsKeyValueSet& marsKeys,
+                                                       const MultIOMDict& mars, const MultIOMDict& par,
+                                                       const MultIOMDict& geo) {
     using namespace multio::datamod;
     // Select caching keys and prehash
     PrehashedMarsKeys cacheKeySet = read(EncoderCacheMarsKeySet{}, marsKeys);
 
+    // Search and return if entry already exists
     if (auto search = cache_.find(cacheKeySet); search != cache_.end()) {
         return search->second;
     }
 
-    return cache_.emplace(std::move(cacheKeySet), MultiOMRawEncoder(kind_, options_, mars)).first->second;
+    // Otherwise prepare a new entry
+
+    // Searching for rule...
+    auto encoderConf = rules_.search(mars);
+    MultIOMRawEncoder encoder{options_, datamod::key<EncoderDef::Conf>(encoderConf)};
+
+    // Load custom sample or use default sample
+    const auto& sampleName = datamod::key<EncoderDef::Sample>(encoderConf);
+    auto sample = sampleName.has() ? loadSample(sampleName.get()) : baseSample_->duplicate();
+
+    // Prepare sample
+    sample = encoder.prepare(std::move(sample), mars, par, geo);
+
+    // Move encoder and prepared sample to cache
+    return cache_
+        .emplace(std::move(cacheKeySet), CacheEntry{std::move(encoderConf), std::move(encoder), std::move(sample)})
+        .first->second;
 }
+
+
+std::unique_ptr<util::MioGribHandle> EncoderCache::getSample(const datamod::MarsKeyValueSet& marsKeys,
+                                                             const MultIOMDict& mars, const MultIOMDict& par,
+                                                             const MultIOMDict& geo) {
+    CacheEntry& entry = makeOrGetEntry(marsKeys, mars, par, geo);
+    return entry.encoder.runtime(entry.preparedSample->duplicate(), mars, par, geo);
+}
+
 
 }  // namespace multio::action

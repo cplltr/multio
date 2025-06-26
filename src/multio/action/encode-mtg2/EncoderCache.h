@@ -15,8 +15,11 @@
 #pragma once
 
 
-#include "multio/action/encode-mtg2/MultIOM.h"
 #include "multio/action/encode-mtg2/Options.h"
+#include "multio/action/encode-mtg2/multiom/MultIOMDict.h"
+#include "multio/action/encode-mtg2/multiom/MultIOMRawEncoder.h"
+#include "multio/action/encode-mtg2/multiom/MultIOMRules.h"
+#include "multio/action/encode/GribEncoder.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/MarsMiscGeo.h"
 #include "multio/util/PrehashedKey.h"
@@ -28,15 +31,28 @@ using PrehashedMarsKeys = util::PrehashedKey<datamod::EncoderCacheMarsKeyValueSe
 
 class EncoderCache {
 public:
-    EncoderCache(MultiOMEncoderKind kind, MultiOMDict&& options);
-    MultiOMRawEncoder& getEncoder(const datamod::MarsKeyValueSet& marsKeys, MultiOMDict& marsDict);
+    EncoderCache(const EncodeMtg2Conf& opts);
+    EncoderCache(const EncodeMtg2Conf& conf, MultIOMDict&& options);
+    
 
-    static EncoderCache make(const EncodeOptionsKeyValueSet& opts, const ComponentConfiguration& conf);
+    
+    std::unique_ptr<util::MioGribHandle> getSample(const datamod::MarsKeyValueSet& marsKeys, const MultIOMDict& marsDict, const MultIOMDict& parDict, const MultIOMDict& geoDict);
+    
 
 private:
-    MultiOMEncoderKind kind_;
-    MultiOMDict options_;
-    std::unordered_map<PrehashedMarsKeys, MultiOMRawEncoder> cache_{};
+    struct CacheEntry {
+        EncoderConf conf;
+        MultIOMRawEncoder encoder;
+        std::unique_ptr<util::MioGribHandle> preparedSample; 
+    };
+    
+    CacheEntry& makeOrGetEntry(const datamod::MarsKeyValueSet& marsKeys, const MultIOMDict& marsDict, const MultIOMDict& parDict, const MultIOMDict& geoDict);
+    
+    std::reference_wrapper<const EncodeMtg2Conf> conf_;
+    MultIOMDict options_;
+    MultIOMRules rules_;
+    std::unique_ptr<util::MioGribHandle> baseSample_;
+    std::unordered_map<PrehashedMarsKeys, CacheEntry> cache_{};
 };
 
 

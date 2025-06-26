@@ -41,6 +41,8 @@ list( APPEND multio_util_srcs
     util/MioGribHandle.cc
     util/Timing.h
     util/PrehashedKey.h
+    util/TypeTraits.h
+    util/TypeToString.h
 )
 
 if ( HAVE_MULTIO_SERVER_MEMORY_PROFILE OR HAVE_MULTIO_CLIENT_MEMORY_PROFILE )

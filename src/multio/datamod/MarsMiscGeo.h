@@ -342,18 +342,15 @@ decltype(auto) withScopedGeometryKeySet(const KVS& kvs, Func&& func) {
     switch (repres.get()) {
         case Repres::GG: {
             std::string scope = std::string("geo-") + grid.get();
-            std::forward<Func>(func)(Repres::GG, scope, keySet<GeoGG>().scoped(scope));
-            return;
+            return std::forward<Func>(func)(Repres::GG, scope, keySet<GeoGG>().scoped(scope));
         }
         case Repres::HEALPix: {
             std::string scope = std::string("geo-") + grid.get();
-            std::forward<Func>(func)(Repres::HEALPix, scope, keySet<GeoHEALPix>().scoped(scope));
-            return;
+            return std::forward<Func>(func)(Repres::HEALPix, scope, keySet<GeoHEALPix>().scoped(scope));
         }
         case Repres::SH: {
             std::string scope = std::string("geo-TCO") + std::to_string(trunc.get());
-            std::forward<Func>(func)(Repres::SH, scope, keySet<GeoSH>().scoped(scope));
-            return;
+            return std::forward<Func>(func)(Repres::SH, scope, keySet<GeoSH>().scoped(scope));
         }
         // TODO uncomment once there are keys specified...
         // case Repres::GG: {

@@ -8,7 +8,7 @@
  * does it submit to any jurisdiction.
  */
 
-#include "multio/action/encode-mtg2/Options.h"
+#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 
 namespace multio::action {
 
