@@ -22,6 +22,29 @@
 #include "multio/datamod/DataModelling.h"
 #include "multiom/api/c/api.h"
 
+// extern "C" {
+//     int dict_init(void** dict, const char* type, int len);
+//     int dict_free(void** dict);
+
+//     int dict_set_string(const char*, int, const char*, int);
+//     int dict_set_long(const char*, int, int64_t);
+//     int dict_set_double(const char*, int, double);
+//     int dict_set_string_array(const char*, int, const char**, int*, int);
+//     int dict_set_long_array(const char*, int, int64_t*, int);
+//     int dict_set_double_array(const char*, int, double*, int);
+//     int dict_has(const char*, int);
+
+//     int dict_get_string(const char*, int, char**, int*);
+//     int dict_get_long(const char*, int, int64_t*);
+//     int dict_get_double(const char*, int, double*);
+//     int dict_get_string_array(const char*, int, char***, int**, int*);
+//     int dict_get_long_array(const char*, int, int64_t**, int*);
+//     int dict_get_double_array(const char*, int, double**, int*);
+
+//     int dict_iterator_next(void*, void**, char**, int*, const char**, int*);
+//     int dict_iterator_free(void**);
+// }
+
 namespace multio::action {
 struct ForeignDictType;
 }
@@ -73,6 +96,8 @@ struct MultIOMDict {
     void set(const std::string& key, const double* val, std::size_t len);
     void set(const std::string& key, const std::vector<std::int64_t>& val);
     void set(const std::string& key, const std::vector<double>& val);
+    
+    std::string toJSON() const;
 
     // Set geoemtry on parametrization
     [[deprecated]]

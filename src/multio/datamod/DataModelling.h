@@ -21,8 +21,8 @@
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
 #include "multio/util/PrehashedKey.h"
-#include "multio/util/TypeTraits.h"
 #include "multio/util/TypeToString.h"
+#include "multio/util/TypeTraits.h"
 
 // TLDR:
 // Use enum tagged tuples instead of struct/classes to describe product types for incoming metadata model or

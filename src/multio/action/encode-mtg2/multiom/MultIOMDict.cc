@@ -13,6 +13,7 @@
 #include "eckit/log/Log.h"
 
 #include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
+#include "multiom/api/c/api.h"
 
 namespace multio::action {
 
@@ -125,6 +126,14 @@ void* MultIOMDict::get() const {
     return static_cast<void*>(dict_.get());
 }
 
+std::string MultIOMDict::toJSON() const {
+    char* d;
+    if (multio_grib2_dict_to_json(get(), &d) != 0) {
+        throw EncodeMtg2Exception("Can not export to json ", Here());
+    }
+    return std::string(d);
+}
+
 
 MultIOMDict MultIOMDict::makeOptions(const EncodeMtg2Conf& opts) {
     MultIOMDict optDict(MultIOMDictKind::Options);
@@ -140,9 +149,9 @@ MultIOMDict MultIOMDict::makeOptions(const EncodeMtg2Conf& opts) {
     if (!knowledgeRoot.isMissing()) {
         setenv("IFS_INSTALL_DIR", knowledgeRoot.get().c_str(), 0);
     }
-    
+
     // TODO set codes path...
-    
+
     return optDict;
 }
 
