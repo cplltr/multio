@@ -50,7 +50,7 @@ enum class MarsKeys : std::uint64_t
     DATE,
     TIME,
     STEP,
-    TIMEPROC,
+    TIMESPAN,
     HDATE,
     GRID,
     TRUNCATION,
@@ -83,7 +83,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MarsKeys::DATE, std::int64_t>{"date"},                            //
     KeyDef<MarsKeys::TIME, std::int64_t>{"time"},                            //
     KeyDef<MarsKeys::STEP, TimeDuration>{"step"},                            //
-    KeyDef<MarsKeys::TIMEPROC, TimeDuration>{"timeproc"}.tagOptional(),      //
+    KeyDef<MarsKeys::TIMESPAN, TimeDuration>{"timespan"}.tagOptional(),      //
     KeyDef<MarsKeys::HDATE, std::int64_t>{"hdate"}.tagOptional(),            //
     KeyDef<MarsKeys::GRID, std::string>{"grid"}.tagOptional(),               //
     KeyDef<MarsKeys::TRUNCATION, std::int64_t>{"truncation"}.tagOptional(),  //
@@ -153,7 +153,7 @@ using EncoderCacheMarsKeySet = CustomKeySet<MarsKeys::EXPVER, MarsKeys::STREAM, 
                                             MarsKeys::CHEM, MarsKeys::MODEL, MarsKeys::LEVTYPE, MarsKeys::LEVELIST,
                                             // MarsKeys::DIRECTION,
                                             // MarsKeys::FREQUENCY,
-                                            MarsKeys::DATE, MarsKeys::TIME, MarsKeys::STEP, MarsKeys::TIMEPROC,
+                                            MarsKeys::DATE, MarsKeys::TIME, MarsKeys::STEP, MarsKeys::TIMESPAN,
                                             MarsKeys::HDATE, MarsKeys::GRID, MarsKeys::TRUNCATION>;
 
 using EncoderCacheMarsKeyValueSet = KeyValueSet<EncoderCacheMarsKeySet>;

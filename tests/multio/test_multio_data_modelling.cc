@@ -359,7 +359,7 @@ CASE("Test reify subset description [1]") {
 
     auto subKeySet = std::make_tuple(key<TestKeys::Key1>(), key<TestKeys::Key4>());
 
-    auto subKeys = details::read(subKeySet, Metadata{{"key1", "val1"}});
+    auto subKeys = read(subKeySet, Metadata{{"key1", "val1"}});
 
     EXPECT_NO_THROW(validate(subKeys));
 
@@ -396,7 +396,7 @@ CASE("Test reify subset description from keyvalues tuple [1]") {
         testKeys.values);
 
     auto subKeySet = std::make_tuple(key<TestKeys::Key1>(), key<TestKeys::Key4>());
-    auto subKeys = details::read(subKeySet, testKeys);
+    auto subKeys = read(subKeySet, testKeys);
 
     EXPECT_EQUAL(key<TestKeys::Key1>(subKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key4>(subKeys).get(), 4);
@@ -427,7 +427,7 @@ CASE("Test reify subset description from keyvalues tuple [1,1]") {
         testKeys.values);
 
     auto subKeySet = std::make_tuple(key<TestKeys::Key1>(), key<TestKeys::Key4>());
-    auto subKeys = details::read(subKeySet, testKeys);
+    auto subKeys = read(subKeySet, testKeys);
 
     EXPECT_EQUAL(key<TestKeys::Key1>(subKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key4>(subKeys).get(), 4);

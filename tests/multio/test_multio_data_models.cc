@@ -51,7 +51,7 @@ multio::message::Metadata makeMarsMetadata() {
                                      {"param", 3},           {"model", "model"},   {"levtype", "heightAboveGround"},
                                      {"levelist", 0},        {"direction", 1},     {"frequency", 2},
                                      {"date", 20220103},     {"time", 180000},     {"step", 4},
-                                     {"timeproc", 1},        {"hdate", 20240101},  {"grid", "O320"},
+                                     {"timespan", 1},        {"hdate", 20240101},  {"grid", "O320"},
                                      {"truncation", 399}};
 }
 
