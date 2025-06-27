@@ -118,8 +118,8 @@
 // keys, then calls a user provided `alter` function that may do more complex operations, and eventually validates that
 // all optional or defaulted keys are given.
 //
-// By default values are referenced and not copied. To create values, either directly use `readValue` or call `acquire`
-// on a `KeyValueSet`.
+// By default values are referenced and not copied. To create values, either directly use `readByValue` or call
+// `acquire` on a `KeyValueSet`.
 //
 // TBD:
 //  * Clean up some functions; reorganize reify, read, write function....
@@ -1298,9 +1298,7 @@ struct BaseKeyValueReader {
     template <auto id, typename KVD, typename Cont_,
               std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<Container, std::decay_t<Cont_>>), bool> = true>
     static KeyValue<id> getByValue(KeyId<id> kid, const KVD& kvd, Cont_&& c) {
-        KeyValue<id> ret{KeyValueReader<Container>::getByRef(kid, kvd, std::forward<Cont_>(c))};
-        ret.acquire();
-        return ret;
+        return KeyValue<id>{KeyValueReader<Container>::getByValue(kvd, std::forward<Cont_>(c))};
     }
 };
 
@@ -1415,7 +1413,7 @@ decltype(auto) read(KVD&& kvd, Container&& c) {
                                                              std::forward<Container>(c));
 }
 template <typename KVD, typename Container, std::enable_if_t<(IsScopedKey_v<std::decay_t<KVD>>), bool> = true>
-decltype(auto) readValue(KVD&& kvd, Container&& c) {
+decltype(auto) readByValue(KVD&& kvd, Container&& c) {
     return KeyValueReader<std::decay_t<Container>>::getByValue(KeyId<std::decay_t<KVD>::id>{}, kvd.baseRef(),
                                                                std::forward<Container>(c));
 }
@@ -1428,15 +1426,17 @@ template <
         (util::IsTuple_v<std::decay_t<DescTup>> && IsScopedKey_v<std::tuple_element_t<0, std::decay_t<DescTup>>>), bool>
     = true>
 decltype(auto) read(DescTup&& tup, Container&& c) {
-    return util::map([&](const auto& kvd) { return read(kvd, std::forward<Container>(c)); }, std::forward<DescTup>(tup));
+    return util::map([&](const auto& kvd) { return read(kvd, std::forward<Container>(c)); },
+                     std::forward<DescTup>(tup));
 }
 template <
     typename DescTup, typename Container,
     std::enable_if_t<
         (util::IsTuple_v<std::decay_t<DescTup>> && IsScopedKey_v<std::tuple_element_t<0, std::decay_t<DescTup>>>), bool>
     = true>
-decltype(auto) readValue(DescTup&& tup, Container&& c) {
-    return util::map([&](const auto& kvd) { return readValue(kvd, std::forward<Container>(c)); }, std::forward<DescTup>(tup));
+decltype(auto) readByValue(DescTup&& tup, Container&& c) {
+    return util::map([&](const auto& kvd) { return readByValue(kvd, std::forward<Container>(c)); },
+                     std::forward<DescTup>(tup));
 }
 
 
@@ -1449,8 +1449,8 @@ decltype(auto) read(KS&& ks, Container&& c) {
 }
 
 template <typename KS, typename Container, std::enable_if_t<(IsKeySet_v<std::decay_t<KS>>), bool> = true>
-decltype(auto) readValue(KS&& ks, Container&& c) {
-    auto values = readValue(ks.keys(), std::forward<Container>(c));
+decltype(auto) readByValue(KS&& ks, Container&& c) {
+    auto values = readByValue(ks.keys(), std::forward<Container>(c));
     KeyValueSet<std::decay_t<KS>> ret{std::forward<KS>(ks), std::move(values)};
     alterAndValidate(ret);
     return ret;

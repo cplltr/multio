@@ -33,7 +33,7 @@ using message::Peer;
 
 
 EncodeMtg2::EncodeMtg2(const ComponentConfiguration& compConf) :
-    ChainedAction{compConf}, conf_{datamod::read(EncodeMtg2KeySet{}, compConf.parsedConfig())}, cache_{conf_} {}
+    ChainedAction{compConf}, conf_{datamod::readByValue(EncodeMtg2KeySet{}, compConf.parsedConfig())}, cache_{conf_} {}
 
 
 void EncodeMtg2::executeImpl(Message msg) {

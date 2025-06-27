@@ -45,9 +45,7 @@ EncoderConf MultIOMRules::search(const MultIOMDict& mars) {
     // Convert the char* result to a std::string
     eckit::LocalConfiguration conf{eckit::YAMLConfiguration{rulePath}};
 
-    EncoderConf res = datamod::read(EncoderDefKeySet{}, conf);
-    acquire(res);
-    return res;
+    return datamod::readByValue(EncoderDefKeySet{}, conf);
 }
 
 

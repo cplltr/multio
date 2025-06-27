@@ -19,6 +19,7 @@
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/DataModellingException.h"
 #include "multio/message/Metadata.h"
+#include "multio/message/Parametrization.h"
 #include "multio/util/TypeTraits.h"
 
 
@@ -31,45 +32,49 @@ namespace multio::datamod {
 template <>
 struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseMetadata> {
     using Base = BaseKeyValueReader<message::BaseMetadata>;
-    using Base::getByValue;
     using Base::getByRef;
+    using Base::getByValue;
+
+
+    template <
+        bool byRef = true, typename KVD, typename MD,
+        std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
+        = true>
+    static decltype(auto) makeVisitor(const KVD& kvd, const MD& md) noexcept {
+        using RW = typename KVD::ReadWrite;
+        return [&](auto&& v) {
+            if constexpr (std::is_same_v<message::Null, std::decay_t<decltype(v)>>) {
+                if constexpr (KVD::tag == KVTag::Required) {
+                    std::ostringstream oss;
+                    oss << "Required Key " << kvd.keyInfo() << " is null in metadata " << md << std::endl;
+                    throw DataModellingException(oss.str(), Here());
+                }
+                return toMissingOrDefaultValue(kvd);
+            }
+            else if constexpr (RW::template CanCreateFromValue_v<decltype(v)>) {
+                if constexpr (byRef) {
+                    return toKeyValueRef(kvd, std::forward<decltype(v)>(v));
+                }
+                else {
+                    return toKeyValue(kvd, std::forward<decltype(v)>(v));
+                }
+            }
+            else {
+                std::ostringstream oss;
+                oss << "Unsupported type " << util::typeToString<std::decay_t<decltype(v)>>() << " for key "
+                    << kvd.keyInfo() << " in metadata: " << md << std::endl;
+                throw DataModellingException(oss.str(), Here());
+            }
+            return toMissingValue(kvd);  // unreachable
+        };
+    }
+
 
     template <
         typename KVD, typename MD,
         std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
         = true>
-    static KeyValueFromKey_t<KVD>  getByRef(const KVD& kvd, MD&& md) {
-        using RW = typename KVD::ReadWrite;
-        if (auto search = std::forward<MD>(md).find(kvd.key()); search != md.end()) {
-            auto visitor = [&](auto&& v) {
-                if constexpr (std::is_same_v<message::Null, std::decay_t<decltype(v)>>) {
-                    if constexpr (KVD::tag == KVTag::Required) {
-                        std::ostringstream oss;
-                        oss << "Required Key " << kvd.keyInfo() << " is null in metadata " << md << std::endl;
-                        throw DataModellingException(oss.str(), Here());
-                    }
-                    return toMissingOrDefaultValue(kvd);
-                }
-                else if constexpr (RW::template CanCreateFromValue_v<decltype(v)>) {
-                    return toKeyValueRef(kvd, std::forward<decltype(v)>(v));
-                }
-                else {
-                    std::ostringstream oss;
-                    oss << "Unsupported type " << util::typeToString<std::decay_t<decltype(v)>>() << " for key "
-                        << kvd.keyInfo() << " in metadata: " << md << std::endl;
-                    throw DataModellingException(oss.str(), Here());
-                }
-                return toMissingValue(kvd);  // unreachable
-            };
-
-            // TODO build some helper to conditionally create a move iterator directly....
-            if constexpr (std::is_lvalue_reference_v<MD>) {
-                return search->second.visit(std::move(visitor));
-            }
-            else {
-                return std::move(search->second).visit(std::move(visitor));
-            }
-        }
+    static KeyValueFromKey_t<KVD> defaultOrThrow(const KVD& kvd, const MD& md) {
         if constexpr (KVD::tag == KVTag::Required) {
             std::ostringstream oss;
             oss << "Missing required key " << kvd.keyInfo() << " in metadata " << md << std::endl;
@@ -77,13 +82,74 @@ struct KeyValueReader<message::BaseMetadata> : BaseKeyValueReader<message::BaseM
         }
         return toMissingOrDefaultValue(kvd);
     }
+
+
+    template <
+        typename KVD, typename MD,
+        std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>), bool>
+        = true>
+    static KeyValueFromKey_t<KVD> getByRef(const KVD& kvd, MD&& md) {
+        if (auto search = std::forward<MD>(md).localFind(kvd.key()); search != md.end()) {
+            if constexpr (std::is_lvalue_reference_v<MD>) {
+                return search->second.visit(makeVisitor(kvd, md));
+            }
+            else {
+                return std::move(search->second).visit(makeVisitor(kvd, md));
+            }
+        }
+        return defaultOrThrow(kvd, md);
+    }
 };
 
 template <>
-struct KeyValueReader<message::Metadata> : KeyValueReader<message::BaseMetadata> {
-    using Base = KeyValueReader<message::BaseMetadata>;
+struct KeyValueReader<message::Metadata> : BaseKeyValueReader<message::Metadata> {
+    using Base = BaseKeyValueReader<message::Metadata>;
     using Base::getByRef;
     using Base::getByValue;
+
+    using BaseReader = KeyValueReader<message::BaseMetadata>;
+
+    template <typename KVD, typename MD,
+              std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::Metadata, std::decay_t<MD>>), bool>
+              = true>
+    static KeyValueFromKey_t<KVD> getByRef(const KVD& kvd, MD&& md) {
+        if (auto search = std::forward<MD>(md).localFind(kvd.key()); search != md.end()) {
+            if constexpr (std::is_lvalue_reference_v<MD>) {
+                return search->second.visit(BaseReader::makeVisitor(kvd, md));
+            }
+            else {
+                return std::move(search->second).visit(BaseReader::makeVisitor(kvd, md));
+            }
+        }
+        // Then do manual search on parametrization
+        const auto& global = message::Parametrization::instance().get();
+        if (auto search = global.localFind(kvd.key()); search != global.end()) {
+            return search->second.visit(BaseReader::makeVisitor(kvd, md));
+        }
+        return BaseReader::defaultOrThrow(kvd, md);
+    }
+
+    // The intention is to always store values from global parametrization as reference.
+    // Values from metadata are copied while values from global metadata are referenced
+    template <typename KVD, typename MD,
+              std::enable_if_t<(IsDynamicKey_v<KVD> && std::is_base_of_v<message::Metadata, std::decay_t<MD>>), bool>
+              = true>
+    static KeyValueFromKey_t<KVD> getByValue(const KVD& kvd, MD&& md) {
+        if (auto search = std::forward<MD>(md).localFind(kvd.key()); search != md.end()) {
+            if constexpr (std::is_lvalue_reference_v<MD>) {
+                return search->second.visit(BaseReader::makeVisitor<false>(kvd, md));
+            }
+            else {
+                return std::move(search->second).visit(BaseReader::makeVisitor<false>(kvd, md));
+            }
+        }
+        // Then do manual search on parametrization
+        const auto& global = message::Parametrization::instance().get();
+        if (auto search = global.localFind(kvd.key()); search != global.end()) {
+            return search->second.visit(BaseReader::makeVisitor<true>(kvd, md));
+        }
+        return BaseReader::defaultOrThrow(kvd, md);
+    }
 };
 
 
@@ -92,10 +158,10 @@ struct KeyValueReader<message::Metadata> : KeyValueReader<message::BaseMetadata>
 //-----------------------------------------------------------------------------
 
 template <>
-struct KeyValueWriter<message::BaseMetadata>: BaseKeyValueWriter<message::BaseMetadata> {
+struct KeyValueWriter<message::BaseMetadata> : BaseKeyValueWriter<message::BaseMetadata> {
     using Base = BaseKeyValueWriter<message::BaseMetadata>;
     using Base::set;
-    
+
     template <typename KVD, typename KV_, typename MD,
               std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<message::BaseMetadata, std::decay_t<MD>>),
@@ -126,8 +192,8 @@ struct KeyValueWriter<message::Metadata> : KeyValueWriter<message::BaseMetadata>
 template <>
 struct KeyValueReader<eckit::Configuration> : BaseKeyValueReader<eckit::Configuration> {
     using Base = BaseKeyValueReader<eckit::Configuration>;
-    using Base::getByValue;
     using Base::getByRef;
+    using Base::getByValue;
 
 
     template <typename T, typename Conf, typename Key>
@@ -245,10 +311,10 @@ struct KeyValueReader<eckit::LocalConfiguration> : KeyValueReader<eckit::Configu
 //-----------------------------------------------------------------------------
 
 template <>
-struct KeyValueWriter<eckit::LocalConfiguration>: BaseKeyValueWriter<eckit::LocalConfiguration>  {
+struct KeyValueWriter<eckit::LocalConfiguration> : BaseKeyValueWriter<eckit::LocalConfiguration> {
     using Base = BaseKeyValueWriter<eckit::LocalConfiguration>;
     using Base::set;
-    
+
     template <typename KVD, typename KV_, typename LConf,
               std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV_>>
                                 && std::is_base_of_v<eckit::LocalConfiguration, std::decay_t<LConf>>),

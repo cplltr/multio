@@ -13,6 +13,7 @@
 
 #include "eckit/testing/Test.h"
 #include "multio/datamod/ContainerInterop.h"
+#include "multio/datamod/DataModelling.h"
 #include "multio/datamod/MarsMiscGeo.h"
 #include "multio/message/Metadata.h"
 
@@ -94,8 +95,7 @@ CASE("Test reading MARS keys from metadata") {
 CASE("Test encoder hashes") {
     using namespace multio::datamod;
 
-    auto marsKeys = read(keySet<MarsKeys>(), makeValidMarsMetadata());
-    acquire(marsKeys);
+    auto marsKeys = readByValue(keySet<MarsKeys>(), makeValidMarsMetadata());
 
     // Create copies
     auto mk1 = marsKeys;

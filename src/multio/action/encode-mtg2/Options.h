@@ -66,8 +66,6 @@ struct KeySetAlter<KeySet<EncodeMtg2Def>> {
             [&]() { return root + "/share/multiom/mappings/mapping-rules.yaml"; });
         key<EncodeMtg2Def::EncodingRules>(opts).withDefault(
             [&]() { return root + "/share/multiom/encodings/encoding-rules-nested.yaml"; });
-
-        acquire(opts);
     }
 };
 

@@ -150,7 +150,7 @@ MultIOMDict MultIOMDict::makeOptions(const EncodeMtg2Conf& opts) {
         setenv("IFS_INSTALL_DIR", knowledgeRoot.get().c_str(), 0);
     }
 
-    // TODO set codes path...
+    // TODO set codes sample path...
 
     return optDict;
 }

@@ -265,18 +265,7 @@ CASE("Test reify description from metadata [2]") {
 CASE("Test reify description from metadata [3]") {
     using namespace multio::datamod;
 
-    // TBD think about changing behaviour that verification is ALWAYS a separate step
-    // Can already throw here if required metadata is not contained
     EXPECT_THROWS(read(keySet<TestKeys>(), Metadata{{"key2", 2.0}, {"key3", 3}, {"key5", true}}));
-    // auto testKeys = reify(keySet<TestKeys>(), Metadata{{"key2", 2.0}, {"key3", 3}, {"key5", true}});
-    // EXPECT_THROWS(validate(testKeys));
-
-    // EXPECT_EQUAL(key<TestKeys::Key1>(testKeys).isMissing(), true);
-    // EXPECT_THROWS(key<TestKeys::Key1>(testKeys).get());
-    // EXPECT_EQUAL(key<TestKeys::Key2>(testKeys).get(), 2.0);
-    // EXPECT_EQUAL(key<TestKeys::Key3>(testKeys).get(), 3);
-    // EXPECT_EQUAL(key<TestKeys::Key4>(testKeys).isMissing(), true);
-    // EXPECT_EQUAL(key<TestKeys::Key5>(testKeys).get(), true);
 };
 
 
@@ -518,12 +507,6 @@ CASE("Test hashing a keyset") {
 
     EXPECT(util::hash(testKeys) != 0);
 };
-
-// TODO Extend and test read/write with differente scope
-
-// TODO rename reify to read for KeyValues??? allow reading a bigger KeyValueSet from a subset
-
-// TODO Extend and test custom validation/init
 
 
 }  // namespace multio::test

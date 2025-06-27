@@ -15,6 +15,8 @@
 #include "eckit/config/YAMLConfiguration.h"
 #include "eckit/testing/Test.h"
 #include "multio/datamod/ContainerInterop.h"
+#include "multio/message/Metadata.h"
+#include "multio/message/Parametrization.h"
 
 
 // Both `enum` or `enum class` work
@@ -53,6 +55,96 @@ MULTIO_KEY_SET_DESCRIPTION(TestKeys,                                            
 
 namespace multio::test {
 
+using multio::message::Metadata;
+
+// Index of the KeyValue variants used to compare
+constexpr std::size_t VARIANT_VAL_INDEX = 1;
+constexpr std::size_t VARIANT_REF_INDEX = 2;
+
+
+CASE("Test metadata by value from global parametrization") {
+    Metadata localMd{{"key1", "val1"}, {"key2", 2.0}, {"key3", 3}, {"key5", true}};
+
+    {
+        using namespace datamod;
+        // Should ref all values
+        auto testKeysRef = read(keySet<TestKeys>(), localMd);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysRef).get(), "val1");
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysRef).get(), 2.0);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysRef).get(), 3);
+        EXPECT_EQUAL(key<TestKeys::Key4>(testKeysRef).isMissing(), true);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysRef).get(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysRef).isMissing(), true);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+    }
+
+    {
+        using namespace datamod;
+        // Should copy all values
+        auto testKeysValue = readByValue(keySet<TestKeys>(), localMd);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysValue).get(), "val1");
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysValue).get(), 2.0);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysValue).get(), 3);
+        EXPECT_EQUAL(key<TestKeys::Key4>(testKeysValue).isMissing(), true);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysValue).get(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysValue).isMissing(), true);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+    }
+
+    // Now setting global metadata
+    message::Parametrization::instance().update(Metadata{{"key6", std::vector<double>{{1.0, 2.0, 3.0}}}});
+
+    {
+        using namespace datamod;
+        // Should ref all values
+        auto testKeysRef = read(keySet<TestKeys>(), localMd);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysRef).get(), "val1");
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysRef).get(), 2.0);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysRef).get(), 3);
+        EXPECT_EQUAL(key<TestKeys::Key4>(testKeysRef).isMissing(), true);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysRef).get(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysRef).has(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysRef).get(), (std::vector<double>{{1.0, 2.0, 3.0}}));
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysRef).value.index(), VARIANT_REF_INDEX);
+    }
+
+    {
+        using namespace datamod;
+        // Should copy all values
+        auto testKeysValue = readByValue(keySet<TestKeys>(), localMd);
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysValue).get(), "val1");
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysValue).get(), 2.0);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysValue).get(), 3);
+        EXPECT_EQUAL(key<TestKeys::Key4>(testKeysValue).isMissing(), true);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysValue).get(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysValue).has(), true);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysValue).get(), (std::vector<double>{{1.0, 2.0, 3.0}}));
+
+        EXPECT_EQUAL(key<TestKeys::Key1>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key2>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key3>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key5>(testKeysValue).value.index(), VARIANT_VAL_INDEX);
+        EXPECT_EQUAL(key<TestKeys::Key6>(testKeysValue).value.index(), VARIANT_REF_INDEX);
+    }
+};
+
 
 CASE("Test parse simple config 1") {
     const std::string exampleJson(
@@ -67,7 +159,6 @@ CASE("Test parse simple config 1") {
 
     using namespace multio::datamod;
     auto testKeys = read(keySet<TestKeys>(), conf);
-    EXPECT_NO_THROW(validate(testKeys));
 
     EXPECT_EQUAL(key<TestKeys::Key1>(testKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key2>(testKeys).get(), 2.0);
@@ -92,7 +183,6 @@ CASE("Test parse simple config 2") {
 
     using namespace multio::datamod;
     auto testKeys = read(keySet<TestKeys>(), conf);
-    EXPECT_NO_THROW(validate(testKeys));
 
     EXPECT_EQUAL(key<TestKeys::Key1>(testKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key2>(testKeys).get(), 2.0);
@@ -117,7 +207,6 @@ CASE("Test parse simple config 3") {
 
     using namespace multio::datamod;
     auto testKeys = read(keySet<TestKeys>(), conf);
-    EXPECT_NO_THROW(validate(testKeys));
 
     EXPECT_EQUAL(key<TestKeys::Key1>(testKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key2>(testKeys).get(), 2.0);
@@ -175,7 +264,6 @@ CASE("Test parse config with int arr") {
 
     using namespace multio::datamod;
     auto testKeys = read(keySet<TestKeys>(), conf);
-    EXPECT_NO_THROW(validate(testKeys));
 
     EXPECT_EQUAL(key<TestKeys::Key1>(testKeys).get(), "val1");
     EXPECT_EQUAL(key<TestKeys::Key2>(testKeys).get(), 2.0);

@@ -168,6 +168,7 @@ struct KeySetAlter<EncoderCacheMarsKeySet> {
             key<MarsKeys::LEVELIST>(cacheKeys).setMissing();
         }
 
+        // Explicitly acquire because all the whole data structure is ment to be stored in a container
         acquire(cacheKeys);
     }
 };
