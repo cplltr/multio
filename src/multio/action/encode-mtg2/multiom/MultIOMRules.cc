@@ -43,6 +43,7 @@ EncoderInfo MultIOMRules::search(const MultIOMDict& mars) {
         throw EncodeMtg2Exception(std::string("Failed searching for rule"), Here());
     }
     eckit::PathName rulePath{cRulePath};
+    free(cRulePath);
 
     // Convert the char* result to a std::string
     eckit::LocalConfiguration conf{eckit::YAMLConfiguration{rulePath}};
