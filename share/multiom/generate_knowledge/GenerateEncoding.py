@@ -279,7 +279,6 @@ class TimeRange(BaseModel):
     type: str
     typeOfStatisticalProcessing: str
     overallLengthOfTimeRange: Optional[str] = None
-    encodeStepZero: Optional[bool] = None
     descriptiveName: str
 
 
@@ -621,11 +620,6 @@ def toDictRepres(val):
                     {}
                     if val.overallLengthOfTimeRange is None
                     else {"overall-length-of-timerange": val.overallLengthOfTimeRange}
-                ),
-                **(
-                    {}
-                    if val.encodeStepZero is None
-                    else {"encode-step-zero": val.encodeStepZero}
                 ),
             }
         case ParamConfig():
