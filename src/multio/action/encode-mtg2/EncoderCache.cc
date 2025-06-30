@@ -54,10 +54,10 @@ EncoderCache::CacheEntry& EncoderCache::makeOrGetEntry(const datamod::MarsKeyVal
 
     // Searching for rule...
     auto encoderConf = rules_.search(mars);
-    MultIOMRawEncoder encoder{options_, datamod::key<EncoderDef::Conf>(encoderConf)};
+    MultIOMRawEncoder encoder{options_, datamod::key<EncoderInfoDef::Conf>(encoderConf)};
 
     // Load custom sample or use default sample
-    const auto& sampleName = datamod::key<EncoderDef::Sample>(encoderConf);
+    const auto& sampleName = datamod::key<EncoderInfoDef::Sample>(encoderConf);
     auto sample = sampleName.has() ? loadSample(sampleName.get()) : baseSample_->duplicate();
 
     // Prepare sample

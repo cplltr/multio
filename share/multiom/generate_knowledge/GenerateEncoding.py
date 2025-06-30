@@ -515,7 +515,6 @@ def toDictRepres(val):
                 "type": val.type,
                 "indicator-section": toDictRepres(val.indicator),
                 "identification-section": toDictRepres(val.identification),
-                "identification-section": toDictRepres(val.identification),
                 "local-use-section": toDictRepres(val.localUse),
                 "grid-definition-section": toDictRepres(val.grid),
                 "product-definition-section": toDictRepres(val.product),
