@@ -529,7 +529,6 @@ enum class EncoderInfoDef : std::uint64_t
 {
     Name,
     Tag,
-    Conf,
     Sections,  // Parsed Conf
     Sample,
 };
@@ -538,13 +537,11 @@ enum class EncoderInfoDef : std::uint64_t
 namespace datamod {
 using action::EncoderInfoDef;
 using action::EncoderSections;
-MULTIO_KEY_SET_DESCRIPTION(EncoderInfoDef,                                     //
-                           "encoder-configuration",                            //
-                                                                               //
-                           KeyDef<EncoderInfoDef::Name, std::string>{"name"},  //
-                           KeyDef<EncoderInfoDef::Tag, std::string>{"tag"},    //
-                           KeyDef<EncoderInfoDef::Conf, eckit::LocalConfiguration>{
-                               KeySetName_v<EncoderSectionsDef>},                         //
+MULTIO_KEY_SET_DESCRIPTION(EncoderInfoDef,                                                //
+                           "encoder-configuration",                                       //
+                                                                                          //
+                           KeyDef<EncoderInfoDef::Name, std::string>{"name"},             //
+                           KeyDef<EncoderInfoDef::Tag, std::string>{"tag"},               //
                            nestedKeyDef<EncoderInfoDef::Sections, EncoderSectionsDef>(),  //
                            KeyDef<EncoderInfoDef::Sample, std::string>{"sample"}.tagOptional())
 

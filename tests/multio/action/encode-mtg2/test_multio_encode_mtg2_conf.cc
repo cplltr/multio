@@ -169,8 +169,8 @@ CASE("Test parsing and comparing rule files") {
         std::cout << "Parsing and comparing rule: " << loadedRule.file << std::endl;
 
         auto encoderInf = read(action::EncoderInfoKeySet{}, loadedRule.conf);
-        auto& readConf = key<EncoderInfoDef::Conf>(encoderInf).modify();
-
+        
+        auto readConf = loadedRule.conf.getSubConfiguration("encoder");
         // Delete key "type" because we don't consider it
         readConf.remove("type");
 

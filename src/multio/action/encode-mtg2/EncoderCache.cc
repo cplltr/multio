@@ -54,7 +54,9 @@ EncoderCache::CacheEntry& EncoderCache::makeOrGetEntry(const datamod::MarsKeyVal
 
     // Searching for rule...
     auto encoderConf = rules_.search(mars);
-    MultIOMRawEncoder encoder{options_, datamod::key<EncoderInfoDef::Conf>(encoderConf)};
+    auto exportedConf = datamod::write<eckit::LocalConfiguration>(datamod::key<EncoderInfoDef::Sections>(encoderConf).get());
+    
+    MultIOMRawEncoder encoder{options_, exportedConf};
 
     // Load custom sample or use default sample
     const auto& sampleName = datamod::key<EncoderInfoDef::Sample>(encoderConf);
