@@ -1460,7 +1460,6 @@ template <typename KeySet_>
 struct KeyValueWriter<KeyValueSet<KeySet_>> : BaseKeyValueWriter<KeyValueSet<KeySet_>> {
     using Base = BaseKeyValueWriter<KeyValueSet<KeySet_>>;
     using BaseTup = KeyValueWriter<typename KeyValueSet<KeySet_>::TupleType>;
-    // using Base::set;
     // using Base::set; // Not needed
 
     template <auto id, typename KVD, typename KV, typename KVS,

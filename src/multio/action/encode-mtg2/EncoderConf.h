@@ -16,6 +16,7 @@
 
 #include "eckit/config/LocalConfiguration.h"
 #include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
+#include "multio/action/encode-mtg2/generated/InferPDT.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
 
@@ -399,7 +400,8 @@ MULTIO_KEY_SET_DESCRIPTION(EncoderPeriodDef,                                    
 namespace action {
 enum class EncoderProductDef : std::uint64_t
 {
-    TemplateNumber,  // Todo create own PDT type
+    TemplateNumber,
+    PDTCat,  // Added optional to generate template number
     Param,
     PointInTime,
     TimeRange,
@@ -417,11 +419,13 @@ enum class EncoderProductDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderProductDef;
+using action::rules::PDTCatDef;
 MULTIO_KEY_SET_DESCRIPTION(
     EncoderProductDef,                                                                          //
     "product-definition-section",                                                               //
                                                                                                 //
-    KeyDef<EncoderProductDef::TemplateNumber, std::int64_t>{"template-number"},                 //
+    KeyDef<EncoderProductDef::TemplateNumber, std::int64_t>{"template-number"}.tagDefaulted(),  // Required but can be infered form PDTCat
+    nestedKeyDef<EncoderProductDef::PDTCat, PDTCatDef>().tagOptional(),                         //
     nestedKeyDef<EncoderProductDef::Param, EncoderParamDef>(),                                  //
     nestedKeyDef<EncoderProductDef::Model, EncoderModelDef>(),                                  //
     nestedKeyDef<EncoderProductDef::PointInTime, EncoderPointInTimeDef>().tagOptional(),        //
@@ -439,19 +443,48 @@ template <>
 struct KeySetAlter<KeySet<EncoderProductDef>> {
     static void alter(KeyValueSet<KeySet<EncoderProductDef>>& product) {
         using namespace datamod;
+        using namespace action::rules;
 
-        const auto& timeRange = key<EncoderProductDef::TimeRange>(product);
-        const auto& pointInTime = key<EncoderProductDef::PointInTime>(product);
+        // Checking PDT
+        {
+            const auto& pdtCat = key<EncoderProductDef::PDTCat>(product);
+            auto& templateNumber = key<EncoderProductDef::TemplateNumber>(product);
 
-        if (timeRange.has() && pointInTime.has()) {
-            std::ostringstream oss;
-            oss << "EncoderProduct has a PointInTime and a TimeStatistics section." << std::endl;
-            throw action::EncodeMtg2Exception(oss.str(), Here());
+            if (templateNumber.isMissing() && pdtCat.isMissing()) {
+                std::ostringstream oss;
+                oss << "EncoderProduct has no template number and no PDT categories  specified.";
+                throw action::EncodeMtg2Exception(oss.str(), Here());
+            }
+
+            if (pdtCat.has()) {
+                auto pdtNum = InferPdt<>{}.inferProductDefinitionTemplateNumber(pdtCat.get());
+
+                if (templateNumber.has() && templateNumber.get() != pdtNum) {
+                    std::ostringstream oss;
+                    oss << "EncoderProduct has a template number and PDT categories specified, but the generated PDT "
+                        << pdtNum << " is different from the passed " << templateNumber.get();
+                    throw action::EncodeMtg2Exception(oss.str(), Here());
+                }
+                templateNumber.set(pdtNum);
+            }
         }
-        if (timeRange.isMissing() && pointInTime.isMissing()) {
-            std::ostringstream oss;
-            oss << "EncoderProduct has no time definition." << std::endl;
-            throw action::EncodeMtg2Exception(oss.str(), Here());
+
+
+        // Checking Time
+        {
+            const auto& timeRange = key<EncoderProductDef::TimeRange>(product);
+            const auto& pointInTime = key<EncoderProductDef::PointInTime>(product);
+
+            if (timeRange.has() && pointInTime.has()) {
+                std::ostringstream oss;
+                oss << "EncoderProduct has a PointInTime and a TimeStatistics section." << std::endl;
+                throw action::EncodeMtg2Exception(oss.str(), Here());
+            }
+            if (timeRange.isMissing() && pointInTime.isMissing()) {
+                std::ostringstream oss;
+                oss << "EncoderProduct has no time definition." << std::endl;
+                throw action::EncodeMtg2Exception(oss.str(), Here());
+            }
         }
     }
 };

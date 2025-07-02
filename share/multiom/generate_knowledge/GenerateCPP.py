@@ -85,7 +85,9 @@ struct ReadSpec<{namespace}::{enumName}> {{
 
 namespace {namespace} {{
 
-std::ostream& operator<<(std::ostream& os, const {enumName}& t) {{
+// Use templaet & SFINAE to generate a header file only - otherwis we have to split definition
+template<typename ET, std::enable_if_t<std::is_same_v<std::decay_t<ET>, {enumName}>, bool> = true>
+std::ostream& operator<<(std::ostream& os, const ET& t) {{
   os << multio::datamod::Writer<{enumName}>::write(t);
   return os;
 }}
