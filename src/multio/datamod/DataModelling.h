@@ -25,8 +25,30 @@
 #include "multio/util/TypeTraits.h"
 
 // TLDR:
-// Use enum tagged tuples instead of struct/classes to describe product types for incoming metadata model or
-// configuration to generate parsers/validators, emitters, printers etc.....
+// The following combination of mechanims is used
+//   * Use enum tagged tuples instead of struct/classes to describe product types for incoming metadata model or
+//     configuration.
+//     Benefit: Allow compile time iteration over members to generate parsers/validators, emitters, printers etc...
+//     Ugly: Some compilation error messages can be long. Otherwise accessing etc. is just different but not necessarily
+//     worse over a struct. Principle: `template<auto id_>` is used to pass any entry of any enum, making each key
+//     representing an own type. With `decltype(id)` the enum itself can be determined.
+//                In the embracing struct a `constexpr` field `id` is declared. Accessing is done at compile time by
+//                iterating each `T` in the tuple and checking `std::is_same_v<decltype(id), T::id>` and `id == T::id`.
+//   * Keys are described at compile time (using KeyDef) - an enum `id` is accosiated with `string_view` key name,
+//   `string_view` description (do generate doc or meaningful error messages),
+//     a `ValueType`, custom mapper (to read/write from containers) and an enum to tag if they are required, optional
+//     etc....
+//   * Custom mappers allow customizing reading/writer (decoding/encoding...) of existing types on specific fields
+//   * `Reader`/`Writer` are used to build accosiated `ValueTypes` and either call a specialized
+//   `ReaderSpec<>::read`/`WriterSpec<>::write`, custom mapper `::read/::write` or
+//     try to use convertion/construction via usual C++ mechanims.
+//   * All Keys are defined within a `KeySet`. `KeySets` can be instantiated to `KeyValueSet` - the eventual usable
+//   object
+//   * A KeySet can have a custom `alter` function to set further dependent defaults or do consistency checks.
+//   Eventually `KeyValueSets`
+//     are validated to make sure all non-optional keys are present.
+//   * Customizing reading & writing of KeyValueSets from specific containers is done with specializing `KeyValueReader`
+//   and `KeyValueWriter`
 //
 // # Why: C++ is lacking compile time reflective features.
 //
@@ -916,6 +938,16 @@ struct KeyValue : BaseKeyValue<KeyDefValueType_t<id_>, KeyDefMapper_t<id_>> {
         }
         return *this;
     }
+    
+    // Set default if value is missing
+    This& alter() {
+        if constexpr (Definition::hasDefaultValueFunctor) {
+            if (this->isMissing()) {
+                this->set(key<id_>().defaultValue());
+            }
+        }
+        return *this;
+    }
 };
 
 
@@ -1038,6 +1070,8 @@ template <typename DescTup, std::enable_if_t<(util::IsTuple_v<std::decay_t<DescT
 decltype(auto) reify(DescTup&& tup) {
     return util::map([&](const auto& kvd) { return toMissingValue(kvd); }, std::forward<DescTup>(tup));
 }
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -1219,6 +1253,7 @@ KV& alter(const KVD& kvd, KV& kv) {
     }
     return kv;
 }
+
 
 // Takes a tuple of KeyValue and verifies that all required keys are set
 template <typename KV, std::enable_if_t<(IsKeyValue_v<std::decay_t<KV>>), bool> = true>
@@ -1408,7 +1443,7 @@ template <auto otherId, typename... KVS>
 struct KeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>>
     : BaseKeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>> {
     using Base = BaseKeyValueWriter<std::tuple<KeyValue<otherId>, KVS...>>;
-    using Base::set;
+    // using Base::set; // Not needed
 
     template <auto id, typename KVD, typename KV, typename KVTup,
               std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV>>
@@ -1425,7 +1460,8 @@ template <typename KeySet_>
 struct KeyValueWriter<KeyValueSet<KeySet_>> : BaseKeyValueWriter<KeyValueSet<KeySet_>> {
     using Base = BaseKeyValueWriter<KeyValueSet<KeySet_>>;
     using BaseTup = KeyValueWriter<typename KeyValueSet<KeySet_>::TupleType>;
-    using Base::set;
+    // using Base::set;
+    // using Base::set; // Not needed
 
     template <auto id, typename KVD, typename KV, typename KVS,
               std::enable_if_t<(IsDynamicKey_v<std::decay_t<KVD>> && IsBaseKeyValue_v<std::decay_t<KV>>

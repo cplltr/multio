@@ -58,7 +58,7 @@ namespace multio::datamod {
 
 template <>
 struct WriteSpec<TimeDuration> {
-    static std::string write(const TimeDuration&) noexcept;
+    static std::string write(const TimeDuration&);
 };
 
 template <>
