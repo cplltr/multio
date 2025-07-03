@@ -28,7 +28,11 @@ template <auto id_, auto... idx>
 struct SetKey {
     datamod::KeyValue<id_> value;
 
-    void operator()(EncoderSections& conf) const { datamod::alteredKeyPath<idx..., id_>(conf) = value; }
+    void operator()(EncoderSections& conf) const {
+        auto& k = datamod::alteredKeyPath<idx..., id_>(conf);
+        k = value;
+        alter(k);
+    }
 };
 
 

@@ -85,6 +85,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MarsKeys::HDATE, std::int64_t>{"hdate"}.tagOptional(),            //
     KeyDef<MarsKeys::GRID, std::string>{"grid"}.tagOptional(),               //
     KeyDef<MarsKeys::TRUNCATION, std::int64_t>{"truncation"}.tagOptional(),  //
+    // TODO this key has been modified and is used internally (with the encoder rules...) should not be handled as official mars key
     KeyDef<MarsKeys::REPRES, Repres>{"repres"}.tagDefaulted().withDescription(
         "`repres` describes the type of representation (e.g. gaussian grid, longitude/latitude, spherical harmonics) "
         "without defining resolution. It can derived from `grid` and `truncation`. If passed its value is compared "

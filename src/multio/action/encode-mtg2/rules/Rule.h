@@ -21,11 +21,13 @@
 
 namespace multio::action::rules {
 
-
+// Rule with dynamic dispatch to be stored in containers massively
 template <typename MatchKeySet_>
 struct DynRule {
     using MatchKeySet = MatchKeySet_;
 
+    // Combines matching and setting. It matched on `keys`, the setter is applied and true is returned.
+    // If nothing matches only false is returned
     virtual bool apply(const datamod::KeyValueSet<MatchKeySet_>& keys, EncoderSections&) const = 0;
 };
 
@@ -39,6 +41,7 @@ struct DerivedRule : DynRule<MatchKeySet_> {
 };
 
 
+// Rule combining matcher and a setter
 template <typename Matcher, typename Setter>
 struct Rule : DerivedRule<typename Matcher::KeySet, Rule<Matcher, Setter>> {
     using MatchKeySet = typename Matcher::KeySet;
@@ -71,6 +74,11 @@ auto rule(Matcher_&& matcher) {
     res.setter = NoOp{};
     return res;
     // return Rule<std::decay_t<Matcher_>, NoOp>(std::forward<Matcher_>(matcher), NoOp{});
+}
+
+template <typename Matcher_, typename... Setters_, std::enable_if_t<(sizeof...(Setters_) >= 2), bool> = true>
+auto rule(Matcher_&& matcher, Setters_&&... setters) {
+    return rule(std::forward<Matcher_>(matcher), setAll(std::forward<Setters_>(setters)...));
 }
 
 
@@ -110,12 +118,26 @@ ExclusiveRuleList<typename Rule_::MatchKeySet> exclusiveRuleList(Rule_&& rule, R
 }
 
 
+template <typename MatchKeySet_>
+ExclusiveRuleList<MatchKeySet_> mergeRuleList(ExclusiveRuleList<MatchKeySet_>&& res) {
+    return res;
+}
+
+template <typename MatchKeySet_, typename... More>
+ExclusiveRuleList<MatchKeySet_> mergeRuleList(ExclusiveRuleList<MatchKeySet_>&& res,
+                                              ExclusiveRuleList<MatchKeySet_>&& next, More&&... more) {
+    res.values.insert(res.values.end(), std::make_move_iterator(next.values.begin()),
+                      std::make_move_iterator(next.values.end()));
+
+    return mergeRuleList(std::move(res), std::forward<More>(more)...);
+}
+
+
 // Chains multiple rules on a struct matter.
-// If the first rule applies, all others also have to apply - otherwise an exception is thrown to indicate that the key
-// set is not definitely mapped.
-// If the first rule does not apply, false is returned (and indicates that no modification happened)
-// This is expected to be compbined
-// with multiple ExclusiveRuleList to eventually form a combination of all partial rules.
+// If the first rule applies, all others also have to apply - otherwise an exception is thrown to indicate that the
+// key set is not definitely mapped. If the first rule does not apply, false is returned (and indicates that no
+// modification happened) This is expected to be compbined with multiple ExclusiveRuleList to eventually form a
+// combination of all partial rules.
 template <typename MatchKeySet_>
 struct ChainedRuleList : DerivedRule<MatchKeySet_, ChainedRuleList<MatchKeySet_>> {
     using MatchKeySet = MatchKeySet_;

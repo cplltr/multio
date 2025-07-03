@@ -937,7 +937,8 @@ struct KeyValue : BaseKeyValue<KeyDefValueType_t<id_>, KeyDefMapper_t<id_>> {
         }
         catch (...) {
             std::throw_with_nested(DataModellingException(
-                std::string("`Nested exception while calling KeyValue::get()` for key " + key<id_>().keyInfo()), Here()));
+                std::string("`Nested exception while calling KeyValue::get()` for key " + key<id_>().keyInfo()),
+                Here()));
         }
     }
     operator const ValueType&() const { return get(); }
@@ -1790,7 +1791,8 @@ struct TypeToString<datamod::KeyId<id>> {
 template <auto... Ids>
 struct TypeToString<datamod::CustomKeySet<Ids...>> {
     std::string operator()() const {
-        return std::string("datamod::CustomKeySet<") + ((typeToString<datamod::KeyId<Ids>() + std::string(", ")...)  + std::string(">");
+        return std::string("datamod::CustomKeySet<") + ((typeToString<datamod::KeyId<Ids>>() + std::string(", ")), ...)
+             + std::string(">");
     };
 };
 
