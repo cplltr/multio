@@ -26,7 +26,7 @@ template <typename MatchKeySet_>
 struct DynRule {
     using MatchKeySet = MatchKeySet_;
 
-    // Combines matching and setting. It matched on `keys`, the setter is applied and true is returned.
+    // Combines matching and setting. If matched on `keys`, the setter is applied and true is returned.
     // If nothing matches only false is returned
     virtual bool apply(const datamod::KeyValueSet<MatchKeySet_>& keys, EncoderSections&) const = 0;
 };
@@ -41,7 +41,9 @@ struct DerivedRule : DynRule<MatchKeySet_> {
 };
 
 
-// Rule combining matcher and a setter
+// A Rule combining matcher and a setter
+// Hence its operator() takes a keyset for matching, a encoder configuration to set keys, and it returns the result of
+// the match. Nothing is set if the match fails.
 template <typename Matcher, typename Setter>
 struct Rule : DerivedRule<typename Matcher::KeySet, Rule<Matcher, Setter>> {
     using MatchKeySet = typename Matcher::KeySet;
@@ -59,6 +61,7 @@ struct Rule : DerivedRule<typename Matcher::KeySet, Rule<Matcher, Setter>> {
     }
 };
 
+// Rule maker
 template <typename Matcher_, typename Setter_>
 auto rule(Matcher_&& matcher, Setter_&& setter) {
     Rule<std::decay_t<Matcher_>, std::decay_t<Setter_>> res;
@@ -67,6 +70,7 @@ auto rule(Matcher_&& matcher, Setter_&& setter) {
     return res;
 }
 
+// Rule maker with a NoOp (to just match)
 template <typename Matcher_>
 auto rule(Matcher_&& matcher) {
     Rule<std::decay_t<Matcher_>, NoOp> res;
@@ -76,12 +80,15 @@ auto rule(Matcher_&& matcher) {
     // return Rule<std::decay_t<Matcher_>, NoOp>(std::forward<Matcher_>(matcher), NoOp{});
 }
 
+// Rule with a matcher and mustiple setters (which get combined with `setAll`)
 template <typename Matcher_, typename... Setters_, std::enable_if_t<(sizeof...(Setters_) >= 2), bool> = true>
 auto rule(Matcher_&& matcher, Setters_&&... setters) {
     return rule(std::forward<Matcher_>(matcher), setAll(std::forward<Setters_>(setters)...));
 }
 
 
+// An ExclusiveRuleList contains a list of rules from which only one is expected to match and be applied
+// This concept is important to express combinations of orthogonal rules
 template <typename MatchKeySet_>
 struct ExclusiveRuleList : DerivedRule<MatchKeySet_, ExclusiveRuleList<MatchKeySet_>> {
     using MatchKeySet = MatchKeySet_;
@@ -120,14 +127,14 @@ ExclusiveRuleList<typename Rule_::MatchKeySet> exclusiveRuleList(Rule_&& rule, R
 
 template <typename MatchKeySet_>
 ExclusiveRuleList<MatchKeySet_> mergeRuleList(ExclusiveRuleList<MatchKeySet_>&& res) {
-    return res;
+    return std::move(res);
 }
 
 template <typename MatchKeySet_, typename... More>
 ExclusiveRuleList<MatchKeySet_> mergeRuleList(ExclusiveRuleList<MatchKeySet_>&& res,
                                               ExclusiveRuleList<MatchKeySet_>&& next, More&&... more) {
-    res.values.insert(res.values.end(), std::make_move_iterator(next.values.begin()),
-                      std::make_move_iterator(next.values.end()));
+    res.rules.insert(res.rules.end(), std::make_move_iterator(next.rules.begin()),
+                     std::make_move_iterator(next.rules.end()));
 
     return mergeRuleList(std::move(res), std::forward<More>(more)...);
 }
@@ -180,6 +187,22 @@ ChainedRuleList<typename Rule_::MatchKeySet> chainedRuleList(Rule_&& rule, Rules
     (res.rules.emplace_back(std::make_unique<std::decay_t<Rules_>>(std::forward<Rules_>(rules))), ...);
     return res;
 }
+
+// template <typename MatchKeySet_>
+// ChainedRuleList<MatchKeySet_> mergeRuleList(ChainedRuleList<MatchKeySet_>&& res) {
+//     return res;
+// }
+
+// template <typename MatchKeySet_, typename... More>
+// ChainedRuleList<MatchKeySet_> mergeRuleList(ChainedRuleList<MatchKeySet_>&& res, ChainedRuleList<MatchKeySet_>&&
+// next,
+//                                             More&&... more) {
+//     res.rules.insert(res.rules.end(), std::make_move_iterator(next.rules.begin()),
+//                       std::make_move_iterator(next.rules.end()));
+
+//     return mergeRuleList(std::move(res), std::forward<More>(more)...);
+// }
+
 
 }  // namespace multio::action::rules
 

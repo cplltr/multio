@@ -174,7 +174,7 @@ auto makeGridRule(datamod::Repres repres, std::int64_t num) {
 auto gridRules() {
     return exclusiveRuleList(makeGridRule(Repres::GG, 40));
 }
-auto shGridRules() {
+auto gridRuleSH() {
     return exclusiveRuleList(makeGridRule(Repres::SH, 50));
 }
 
@@ -193,7 +193,7 @@ auto processTypesRules() {
         rule(all(Has<MarsKeys::NUMBER>{}, Has<MarsKeys::HDATE>{}), reforecast(), ensemble()));
 }
 
-auto processTypesAlRules() {
+auto processTypesRulesAl() {
     return exclusiveRuleList(  //
         rule(all(Has<MarsKeys::NUMBER>{}), largeEnsemble()));
 }
@@ -204,14 +204,18 @@ auto packingRules() {
         rule(OneOf<MarsKeys::PACKING>{{"simple"}}, dataRepres(0)),
         rule(OneOf<MarsKeys::PACKING>{{"ccsds"}}, dataRepres(42)));
 }
-
-auto packingSHRules() {
+auto packingRulesSH() {
     return exclusiveRuleList(  //
         rule(OneOf<MarsKeys::PACKING>{{"complex"}}, dataRepres(52)));
 }
 
+
 //-----------------------------------------------------------------------------
 // Params
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// SFC
 //-----------------------------------------------------------------------------
 
 auto paramSFCRules() {
@@ -435,13 +439,218 @@ auto paramSFCRules() {
     );
 }
 
-//-----------------------------------------------------------------------------
-// Params for SH
-//-----------------------------------------------------------------------------
+
+auto paramHLRules() {
+    return exclusiveRuleList(                                                                   //
+        rule(all(matchLevType("hl"), matchParams(10, 54, 130, 131, 132, 157, 246, 247, 3031)),  //
+             pointInTime(),                                                                     //
+             typeOfLevel("heightAboveGround")),                                                 //
+        rule(all(matchLevType("hl"), matchParams(235131, 235132)),                              //
+             timeRange("since-last-post-processing-step", "average"),                           //
+             typeOfLevel("heightAboveGround"))                                                  //
+    );
+}
+
 
 //-----------------------------------------------------------------------------
-// Params for AL
+// ML
 //-----------------------------------------------------------------------------
+
+auto paramMLRules() {
+    return exclusiveRuleList(                                                                //
+        rule(all(matchLevType("ml"), matchParams(75, 76, 133, 203, 246, 247, 248, 260290)),  //
+             pointInTime(),                                                                  //
+             typeOfLevel("hybrid")),                                                         //
+        rule(all(matchLevType("ml"), matchParams(paramRange(162100, 162113))),               //
+             timeRange("since-beginning-of-forecast", "accumul"),                            //
+             typeOfLevel("hybrid"))                                                          //
+    );
+}
+
+auto paramMLRulesSH() {
+    return exclusiveRuleList(                                                                   //
+        rule(all(matchLevType("ml"), matchParams(77, 129, 130, 131, 132, 135, 138, 152, 155)),  //
+             pointInTime(),                                                                     //
+             typeOfLevel("hybrid"))                                                             //
+    );
+}
+
+
+//-----------------------------------------------------------------------------
+// PL
+//-----------------------------------------------------------------------------
+
+// Special composer to handle pressure units differently
+// The exclusion list should be the outermost - hence we are passing in the specializations
+template <typename MkTail>
+auto plLevelRules(MkTail&& mkTail) {
+    return exclusiveRuleList(                                                     //
+        chainedRuleList(                                                          //
+            rule(all(matchLevType("pl"), GreaterEqual<MarsKeys::LEVELIST>{100}),  //
+                 typeOfLevel("isobaricinhpa")),
+            mkTail()),                                                        //
+        chainedRuleList(                                                      //
+            rule(all(matchLevType("pl"), LessThan<MarsKeys::LEVELIST>{100}),  //
+                 typeOfLevel("isobaricinpa")),
+            mkTail())  //
+    );
+}
+
+auto paramPLRules() {
+    return plLevelRules([]() {
+        return exclusiveRuleList(                                                                 //
+            rule(matchParams(60, 75, 76, paramRange(129, 135), 203, 246, 247, 248, 157, 260290),  //
+                 pointInTime()),                                                                  //
+            rule(matchParams(235100, paramRange(235129, 235133), 235135, 235157, 235246),         //
+                 timeRange("since-last-post-processing-step", "average"))                         //
+        );
+    });
+}
+
+auto paramPLRulesSH() {
+    return plLevelRules([]() {
+        return exclusiveRuleList(                                              //
+            rule(matchParams(1, 2, paramRange(129, 135), 138, 152, 155, 157),  //
+                 pointInTime())                                                //
+        );
+    });
+}
+
+
+//-----------------------------------------------------------------------------
+// PT
+//-----------------------------------------------------------------------------
+
+auto paramPTRules() {
+    return exclusiveRuleList(                                                                 //
+        rule(all(matchLevType("pt"), matchParams(53, 54, 60, 131, 132, 133, 138, 155, 203)),  //
+             pointInTime(),                                                                   //
+             typeOfLevel("theta")),                                                           //
+        rule(all(matchLevType("pt"), matchParams(235203)),                                    //
+             timeRange("since-last-post-processing-step", "average"),                         //
+             typeOfLevel("theta")),                                                           //
+        rule(all(matchLevType("pt"), matchParams(237203)),                                    //
+             timeRange("since-last-post-processing-step", "max"),                             //
+             typeOfLevel("theta")),                                                           //
+        rule(all(matchLevType("pt"), matchParams(238203)),                                    //
+             timeRange("since-last-post-processing-step", "min"),                             //
+             typeOfLevel("theta")),                                                           //
+        rule(all(matchLevType("pt"), matchParams(239203)),                                    //
+             timeRange("since-last-post-processing-step", "stddev"),                          //
+             typeOfLevel("theta"))                                                            //
+    );
+}
+
+auto paramPTRulesSH() {
+    return exclusiveRuleList(                                                        //
+        rule(all(matchLevType("pt"), matchParams(53, 54, 131, 132, 133, 138, 155)),  //
+             pointInTime(),                                                          //
+             typeOfLevel("theta"))                                                   //
+    );
+}
+
+//-----------------------------------------------------------------------------
+// PV
+//-----------------------------------------------------------------------------
+
+auto paramPVRules() {
+    return exclusiveRuleList(                                                       //
+        rule(all(matchLevType("pv"), matchParams(3, 54, 129, 131, 132, 133, 203)),  //
+             pointInTime(),                                                         //
+             typeOfLevel("potentialVorticity"))                                     //
+    );
+}
+
+auto paramPVRulesSH() {
+    return exclusiveRuleList(                                   //
+        rule(all(matchLevType("pv"), matchParams(3, 54, 129)),  //
+             pointInTime(),                                     //
+             typeOfLevel("potentialVorticity"))                 //
+    );
+}
+
+
+//-----------------------------------------------------------------------------
+// Soil
+//-----------------------------------------------------------------------------
+
+auto paramSOLRules() {
+    return exclusiveRuleList(                                             //
+        rule(all(matchLevType("sol"), matchParams(262000, 262024)),       //
+             pointInTime(),                                               //
+             typeOfLevel("seaIceLayer")),                                 //
+        rule(all(matchLevType("sol"), matchParams(33, 74, 238, 228038)),  //
+             pointInTime(),                                               //
+             typeOfLevel("snowLayer")),                                   //
+        rule(all(matchLevType("sol"), matchParams(228141)),               //
+             pointInTime(),                                               //
+             typeOfLevel("snow")),                                        //
+        rule(all(matchLevType("sol"), matchParams(260360, 260199, 183)),  //
+             pointInTime(),                                               //
+             typeOfLevel("soilLayer")),                                   //
+        rule(all(matchLevType("sol"), matchParams(235077)),               //
+             timeRange("since-last-post-processing-step", "average"),     //
+             typeOfLevel("soilLayer")),                                   //
+        rule(all(matchLevType("sol"), matchParams(235078)),               //
+             timeRange("since-last-post-processing-step", "average"),     //
+             typeOfLevel("snow"))                                         //
+    );
+}
+
+
+//-----------------------------------------------------------------------------
+// Al
+//-----------------------------------------------------------------------------
+
+auto paramAlRules() {
+    return exclusiveRuleList(                                                   //
+        rule(all(matchLevType("al"), matchParams(paramRange(213101, 213160))),  //
+             pointInTime(),                                                     //
+             randomPattern(),                                                   //
+             typeOfLevel("abstractSingleLevel"))                                //
+    );
+}
+
+
+//-----------------------------------------------------------------------------
+// Satellite
+//-----------------------------------------------------------------------------
+
+auto paramSatelliteRules() {
+    return exclusiveRuleList(                                                    //
+        rule(all(matchLevType("sfc"), matchParams(paramRange(260510, 260513))),  //
+             pointInTime(),                                                      //
+             satellite()));
+}
+
+
+//-----------------------------------------------------------------------------
+// Final composed param rules
+//-----------------------------------------------------------------------------
+
+auto paramRules() {
+    return mergeRuleList(      //
+        paramSFCRules(),       //
+        paramHLRules(),        //
+        paramMLRules(),        //
+        paramPLRules(),        //
+        paramPTRules(),        //
+        paramPVRules(),        //
+        paramSOLRules(),       //
+        paramSatelliteRules()  //
+    );
+}
+
+
+auto paramRulesSH() {
+    return mergeRuleList(  //
+        paramMLRulesSH(),  //
+        paramPLRulesSH(),  //
+        paramPTRulesSH(),  //
+        paramPVRulesSH()   //
+    );
+}
+
 
 //-----------------------------------------------------------------------------
 // Big rule tree...
@@ -455,18 +664,18 @@ static const ExclusiveRuleList<MarsKeySet>& allRules() {
             gridRules(),                                                          //
             localSectionRules(),                                                  //
             processTypesRules(),                                                  //
-            // paramRules(), //
-            packingRules()  //
+            paramRules(),                                                         //
+            packingRules()                                                        //
             ),
 
         // Branch for spherical harmonics
         chainedRuleList(                                                                //
             rule(all(Has<MarsKeys::TRUNCATION>{}, NoneOf<MarsKeys::LEVTYPE>{{"al"}})),  //
-            shGridRules(),                                                              //
+            gridRuleSH(),                                                               //
             localSectionRules(),                                                        //
             processTypesRules(),                                                        //
-            // paramSHRules(), //
-            packingSHRules()  //
+            paramRulesSH(),                                                             //
+            packingRulesSH()                                                            //
             ),
 
         // Branch for abstract level
@@ -474,9 +683,9 @@ static const ExclusiveRuleList<MarsKeySet>& allRules() {
             rule(matchLevType("al")),  //
             gridRules(),               //
             localSectionRules(),       //
-            processTypesAlRules(),     //
-            // paramAlRules(),//
-            packingRules()  //
+            processTypesRulesAl(),     //
+            paramAlRules(),            //
+            packingRules()             //
             ));
     return all_;
 }
