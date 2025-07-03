@@ -8,10 +8,6 @@
  * does it submit to any jurisdiction.
  */
 
-/// @author Philipp Geier
-
-/// @date March 2025
-
 #pragma once
 
 #include <tuple>
@@ -806,53 +802,59 @@ struct BaseKeyValue {
     // Function to get the contained value if it's not missing - due to the possibility of containing a reference,
     // only const& versions can get Optimized rvalue handling is achieved through visit
     const ValueType& get() const {
-        return std::visit(eckit::Overloaded{
-                              [&](const ValueType& val) -> const ValueType& { return val; },
-                              [&](const RefType& val) -> const ValueType& { return val.get(); },
-                              [&](const MissingValue&) -> const ValueType& {
-                                  throw DataModellingException(
-                                      std::string("Unchecked call to `KeyValue::get()` (missing value). Seems like an "
-                                                  "unvalidated object has been accessed?"),
-                                      Here());
-                              },
-                          },
-                          value);
+        return std::visit(
+            eckit::Overloaded{
+                [&](const ValueType& val) -> const ValueType& { return val; },
+                [&](const RefType& val) -> const ValueType& { return val.get(); },
+                [&](const MissingValue&) -> const ValueType& {
+                    throw DataModellingException(
+                        std::string("Unchecked call to `BaseKeyValue::get()` (missing value). Seems like an "
+                                    "unvalidated object has been accessed?"),
+                        Here());
+                },
+            },
+            value);
     }
     operator const ValueType&() const { return get(); }
 
-    // TODO rename ?
     ValueType& modify() {
-        return std::visit(eckit::Overloaded{
-                              [&](ValueType& val) -> ValueType& { return val; },
-                              [&](RefType& val) -> ValueType& {
-                                  this->value = val.get();
-                                  return std::get<ValueType>(this->value);
-                              },
-                              [&](const MissingValue&) -> ValueType& {
-                                  throw DataModellingException(
-                                      std::string("Unchecked call to `KeyValue::get()` (missing value). Seems like an "
-                                                  "unvalidated object has been accessed?"),
-                                      Here());
-                              },
-                          },
-                          value);
+        return std::visit(
+            eckit::Overloaded{
+                [&](ValueType& val) -> ValueType& { return val; },
+                [&](RefType& val) -> ValueType& {
+                    this->value = val.get();
+                    return std::get<ValueType>(this->value);
+                },
+                [&](const MissingValue&) -> ValueType& {
+                    throw DataModellingException(
+                        std::string("Unchecked call to `BaseKeyValue::modify()` (missing value). Seems like an "
+                                    "unvalidated object has been accessed?"),
+                        Here());
+                },
+            },
+            value);
     }
     operator ValueType&() { return modify(); }
 
     void setMissing() noexcept { value = MissingValue{}; }
 
-    template <typename V,
-              std::enable_if_t<
-                  (!std::is_same_v<std::decay_t<V>, MissingValue> && !std::is_same_v<std::decay_t<V>, RefType>), bool>
-              = true>
-    void set(V&& v) noexcept {
+    template <typename V, std::enable_if_t<(std::is_same_v<std::decay_t<V>, ValueType>), bool> = true>
+    void set(V&& v) {
+        value = std::forward<V>(v);
+    }
+    template <typename V, std::enable_if_t<(!std::is_same_v<std::decay_t<V>, MissingValue>
+                                            && !std::is_same_v<std::decay_t<V>, RefType>
+                                            && !std::is_same_v<std::decay_t<V>, ValueType>),
+                                           bool>
+                          = true>
+    void set(V&& v) {
         value = ReadWrite::read(std::forward<V>(v));
     }
     template <typename V,
               std::enable_if_t<
                   (std::is_same_v<std::decay_t<V>, MissingValue> || std::is_same_v<std::decay_t<V>, RefType>), bool>
               = true>
-    void set(V&& v) noexcept {
+    void set(V&& v) {
         value = std::forward<V>(v);
     }
 
@@ -929,6 +931,28 @@ struct KeyValue : BaseKeyValue<KeyDefValueType_t<id_>, KeyDefMapper_t<id_>> {
     Base& baseRef() & noexcept { return static_cast<Base&>(*this); };
     Base baseRef() && noexcept { return std::move(*this); };
 
+    const ValueType& get() const {
+        try {
+            return Base::get();
+        }
+        catch (...) {
+            std::throw_with_nested(DataModellingException(
+                std::string("`Nested exception while calling KeyValue::get()` for key " + key<id_>().keyInfo()), Here()));
+        }
+    }
+    operator const ValueType&() const { return get(); }
+
+    ValueType& modify() {
+        try {
+            return Base::modify();
+        }
+        catch (...) {
+            std::throw_with_nested(DataModellingException(
+                std::string("`Nested exception while calling KeyValue::modify()` for key " + key<id_>().keyInfo()),
+                Here()));
+        }
+    }
+
     This& setMissingOrDefaultValue() {
         if constexpr (Definition::hasDefaultValueFunctor) {
             this->set(key<id_>().defaultValue());
@@ -938,8 +962,10 @@ struct KeyValue : BaseKeyValue<KeyDefValueType_t<id_>, KeyDefMapper_t<id_>> {
         }
         return *this;
     }
-    
+
     // Set default if value is missing
+    // TODO remove in favor of global function...
+    [[deprecated]]
     This& alter() {
         if constexpr (Definition::hasDefaultValueFunctor) {
             if (this->isMissing()) {
@@ -1070,8 +1096,6 @@ template <typename DescTup, std::enable_if_t<(util::IsTuple_v<std::decay_t<DescT
 decltype(auto) reify(DescTup&& tup) {
     return util::map([&](const auto& kvd) { return toMissingValue(kvd); }, std::forward<DescTup>(tup));
 }
-
-
 
 
 //-----------------------------------------------------------------------------
@@ -1232,6 +1256,13 @@ void validate(const KVD&, const KV& kv) {
             throw DataModellingException(std::string("Missing required key: ") + key<KV::id>().keyInfo(), Here());
         }
     }
+
+    // Check for nested validation
+    if constexpr (IsKeyValueSet_v<typename std::decay_t<KV>::ValueType>) {
+        if (kv.has()) {
+            validate(kv.get());
+        }
+    }
 }
 
 // Takes a tuple of KeyValue and verifies that all required keys are set
@@ -1280,18 +1311,6 @@ void validate(const ValTup& tup) {
 
 
 // Takes a tuple of KeyValue and verifies that all required keys are set
-template <typename KVS, std::enable_if_t<(IsKeyValueSet_v<std::decay_t<KVS>>), bool> = true>
-KVS& alter(KVS& kvs) {
-    const auto& keys = kvs.keySet.keys();
-    // Alter single entries first (make sure they have a default applied if given)
-    util::forEach([&](auto& kv) { alter(key<std::decay_t<decltype(kv)>::id>(keys), kv); }, kvs.values);
-
-    // Now call the Keyset specific alter function if given
-    std::decay_t<KVS>::alter(kvs);
-    return kvs;
-}
-
-// Takes a tuple of KeyValue and verifies that all required keys are set
 template <
     typename ValTup,
     std::enable_if_t<(util::IsTuple_v<std::decay_t<ValTup>> && IsKeyValue_v<std::tuple_element_t<0, ValTup>>), bool>
@@ -1299,6 +1318,26 @@ template <
 ValTup& alter(ValTup& tup) {
     util::forEach([&](const auto& kv) { alter(kv); }, tup);
     return tup;
+}
+
+
+// Takes a tuple of KeyValue and verifies that all required keys are set
+template <typename KVS, std::enable_if_t<(IsKeyValueSet_v<std::decay_t<KVS>>), bool> = true>
+KVS& alterKeys(KVS& kvs) {
+    const auto& keys = kvs.keySet.keys();
+    // Alter single entries first (make sure they have a default applied if given)
+    util::forEach([&](auto& kv) { alter(key<std::decay_t<decltype(kv)>::id>(keys), kv); }, kvs.values);
+
+    return kvs;
+}
+
+// Takes a tuple of KeyValue and verifies that all required keys are set
+template <typename KVS, std::enable_if_t<(IsKeyValueSet_v<std::decay_t<KVS>>), bool> = true>
+KVS& alter(KVS& kvs) {
+    alterKeys(kvs);
+    // Now call the Keyset specific alter function if given
+    std::decay_t<KVS>::alter(kvs);
+    return kvs;
 }
 
 
@@ -1554,8 +1593,10 @@ struct ReadSpec<KeyValueSet<KeySet_>> {
     template <typename Val, std::enable_if_t<KeyValueReader<std::decay_t<Val>>::isSpecialized, bool> = true>
     static KeyValueSet<KeySet_> read(Val&& val) noexcept(noexcept(datamod::read(KeySet_{}, std::forward<Val>(val)))) {
         // TODO find a mechanism to determine whether by value or ref is the better default
+        // Currently, for nested structures this behaviour is not controlled proprely.
+        // The outer call may be `read` or `readByValue`, at this point we don't know, hence it's safer to `readByValue`
         // Also key modifications may be considered?
-        return datamod::read(KeySet_{}, std::forward<Val>(val));
+        return datamod::readByValue(KeySet_{}, std::forward<Val>(val));
     }
 };
 
@@ -1635,8 +1676,6 @@ template <typename KeySet_, typename Container>
 struct WriteSpec<KeyValueSet<KeySet_>, Container> {
     template <typename Val, std::enable_if_t<std::is_same_v<std::decay_t<Val>, KeyValueSet<KeySet_>>, bool> = true>
     static Container write(Val&& val) noexcept(noexcept(datamod::write<Container>(std::forward<Val>(val)))) {
-        // TODO find a mechanism to determine whether by value or ref is the better default
-        // Also key modifications may be considered?
         return datamod::write<Container>(std::forward<Val>(val));
     }
 };
@@ -1648,15 +1687,52 @@ struct WriteSpec<KeyValueSet<KeySet_>, Container> {
 
 
 template <auto id_, typename NestedEnum>
-constexpr auto nestedKeyDef() {
-    return KeyDef<id_, KeyValueSet<KeySet<NestedEnum>>>{KeySetName_v<NestedEnum>};
+constexpr auto nestedOptKeyDef(std::string_view keyName = KeySetName_v<NestedEnum>) {
+    return KeyDef<id_, KeyValueSet<KeySet<NestedEnum>>>{keyName}.tagOptional();
 }
 
 template <auto id_, typename NestedEnum>
-constexpr auto nestedKeyDef(std::string_view keyName) {
-    return KeyDef<id_, KeyValueSet<KeySet<NestedEnum>>>{keyName};
+constexpr auto nestedKeyDef(std::string_view keyName = KeySetName_v<NestedEnum>) {
+    return KeyDef<id_, KeyValueSet<KeySet<NestedEnum>>>{keyName}.withDefault([]() {
+        // Default is to set the KeyValueSet and call alter on it
+        KeyValueSet<KeySet<NestedEnum>> ret{};
+        alterKeys(ret);
+        return ret;
+    });
 }
 
+
+// Access a nested key more easily, alter unset keys if missing
+template <auto id_, auto... idx, typename KVS, std::enable_if_t<(sizeof...(idx) == 0), bool> = true>
+decltype(auto) alteredKeyPath(KVS& conf) {
+    return datamod::key<id_>(conf);
+}
+
+template <auto id1, auto... idx, typename KVS, std::enable_if_t<(sizeof...(idx) > 0), bool> = true>
+decltype(auto) alteredKeyPath(KVS& conf) {
+    auto& v1 = datamod::key<id1>(conf);
+    // a solid alter(v1) is not enough
+    // this accessor should also put in values even if nested keys are not defaulted
+    if (v1.isMissing()) {
+        using ValueType = datamod::KeyDefValueType_t<id1>;
+        v1.set(ValueType{});
+        alterKeys(v1.modify());
+    }
+    return alteredKeyPath<idx...>(v1.modify());
+}
+
+
+// Read key path
+template <auto id_, auto... idx, typename KVS, std::enable_if_t<(sizeof...(idx) == 0), bool> = true>
+decltype(auto) keyPath(KVS& conf) {
+    return datamod::key<id_>(conf);
+}
+
+template <auto id1, auto... idx, typename KVS, std::enable_if_t<(sizeof...(idx) > 0), bool> = true>
+decltype(auto) keyPath(KVS& conf) {
+    auto& v1 = datamod::key<id1>(conf);
+    return keyPath<idx...>(v1.get());
+}
 
 //-----------------------------------------------------------------------------
 // Utilities

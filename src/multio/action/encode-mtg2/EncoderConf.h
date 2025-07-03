@@ -8,10 +8,6 @@
  * nor does it submit to any jurisdiction.
  */
 
-/// @author Philipp Geier
-
-/// @date Oct 2025
-
 #pragma once
 
 #include "eckit/config/LocalConfiguration.h"
@@ -420,23 +416,23 @@ enum class EncoderProductDef : std::uint64_t
 namespace datamod {
 using action::EncoderProductDef;
 using action::rules::PDTCatDef;
-MULTIO_KEY_SET_DESCRIPTION(
-    EncoderProductDef,                                                                          //
-    "product-definition-section",                                                               //
-                                                                                                //
-    KeyDef<EncoderProductDef::TemplateNumber, std::int64_t>{"template-number"}.tagDefaulted(),  // Required but can be infered form PDTCat
-    nestedKeyDef<EncoderProductDef::PDTCat, PDTCatDef>().tagOptional(),                         //
-    nestedKeyDef<EncoderProductDef::Param, EncoderParamDef>(),                                  //
-    nestedKeyDef<EncoderProductDef::Model, EncoderModelDef>(),                                  //
-    nestedKeyDef<EncoderProductDef::PointInTime, EncoderPointInTimeDef>().tagOptional(),        //
-    nestedKeyDef<EncoderProductDef::TimeRange, EncoderTimeRangeDef>().tagOptional(),            //
-    nestedKeyDef<EncoderProductDef::Process, EncoderProcessDef>().tagOptional(),                //
-    nestedKeyDef<EncoderProductDef::Level, EncoderLevelDef>().tagOptional(),                    //
-    nestedKeyDef<EncoderProductDef::RandomPatterns, EncoderRandomPatternsDef>().tagOptional(),  //
-    nestedKeyDef<EncoderProductDef::Chemical, EncoderChemDef>().tagOptional(),                  //
-    nestedKeyDef<EncoderProductDef::DirFreq, EncoderDirFreqDef>().tagOptional(),                //
-    nestedKeyDef<EncoderProductDef::PeriodRange, EncoderPeriodDef>().tagOptional(),             //
-    nestedKeyDef<EncoderProductDef::Satellite, EncoderSatelliteDef>().tagOptional())            //
+MULTIO_KEY_SET_DESCRIPTION(EncoderProductDef,             //
+                           "product-definition-section",  //
+                                                          //
+                           KeyDef<EncoderProductDef::TemplateNumber, std::int64_t>{"template-number"}
+                               .tagDefaulted(),  // Required but can be infered form PDTCat
+                           nestedOptKeyDef<EncoderProductDef::PDTCat, PDTCatDef>(),                         //
+                           nestedKeyDef<EncoderProductDef::Param, EncoderParamDef>(),                       //
+                           nestedKeyDef<EncoderProductDef::Model, EncoderModelDef>(),                       //
+                           nestedOptKeyDef<EncoderProductDef::PointInTime, EncoderPointInTimeDef>(),        //
+                           nestedOptKeyDef<EncoderProductDef::TimeRange, EncoderTimeRangeDef>(),            //
+                           nestedOptKeyDef<EncoderProductDef::Process, EncoderProcessDef>(),                //
+                           nestedOptKeyDef<EncoderProductDef::Level, EncoderLevelDef>(),                    //
+                           nestedOptKeyDef<EncoderProductDef::RandomPatterns, EncoderRandomPatternsDef>(),  //
+                           nestedOptKeyDef<EncoderProductDef::Chemical, EncoderChemDef>(),                  //
+                           nestedOptKeyDef<EncoderProductDef::DirFreq, EncoderDirFreqDef>(),                //
+                           nestedOptKeyDef<EncoderProductDef::PeriodRange, EncoderPeriodDef>(),             //
+                           nestedOptKeyDef<EncoderProductDef::Satellite, EncoderSatelliteDef>())            //
 
 
 template <>

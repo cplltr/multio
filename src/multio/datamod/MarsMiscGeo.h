@@ -8,10 +8,6 @@
  * does it submit to any jurisdiction.
  */
 
-/// @author Philipp Geier
-
-/// @date Sep 2023
-
 #pragma once
 
 #include "multio/datamod/DataModelling.h"
@@ -42,6 +38,7 @@ enum class MarsKeys : std::uint64_t
     INSTRUMENT,
     CHANNEL,
     CHEM,
+    WAVELENGTH,
     MODEL,
     LEVTYPE,
     LEVELIST,
@@ -75,6 +72,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MarsKeys::INSTRUMENT, std::int64_t>{"instrument"}.tagOptional(),  //
     KeyDef<MarsKeys::CHANNEL, std::int64_t>{"channel"}.tagOptional(),        //
     KeyDef<MarsKeys::CHEM, std::int64_t>{"chem"}.tagOptional(),              //
+    KeyDef<MarsKeys::WAVELENGTH, std::int64_t>{"wavelength"}.tagOptional(),  //
     KeyDef<MarsKeys::MODEL, std::string>{"model"}.tagOptional(),             //
     KeyDef<MarsKeys::LEVTYPE, std::string>{"levtype"}.tagOptional(),         //
     KeyDef<MarsKeys::LEVELIST, std::int64_t>{"levelist"}.tagOptional(),      //

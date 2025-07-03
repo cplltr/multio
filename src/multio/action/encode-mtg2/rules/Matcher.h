@@ -8,13 +8,8 @@
  * nor does it submit to any jurisdiction.
  */
 
-/// @author Philipp Geier
-
-/// @date Oct 2025
-
 #pragma once
 
-#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/MarsMiscGeo.h"
@@ -30,11 +25,12 @@ namespace multio::action::rules {
 // Returns false if the field is not given
 template <auto Id_>
 struct OneOf {
+    using KeySet = datamod::KeySet<decltype(Id_)>;
     using ValueType = datamod::KeyDefValueType_t<Id_>;
 
     std::unordered_set<ValueType> values;
 
-    bool operator()(const datamod::KeyValueSet<datamod::KeySet<decltype(Id_)>>& keys) const {
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         const auto& kv = datamod::key<Id_>(keys);
 
         return (kv.has() && (values.find(kv.get()) != values.end()));
@@ -45,11 +41,12 @@ struct OneOf {
 // Returns false if the field is not given
 template <auto Id_>
 struct NoneOf {
+    using KeySet = datamod::KeySet<decltype(Id_)>;
     using ValueType = datamod::KeyDefValueType_t<Id_>;
 
     std::unordered_set<ValueType> values;
 
-    bool operator()(const datamod::KeyValueSet<datamod::KeySet<decltype(Id_)>>& keys) const {
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         const auto& kv = datamod::key<Id_>(keys);
 
         return (kv.has() && (values.find(kv.get()) == values.end()));
@@ -59,7 +56,9 @@ struct NoneOf {
 // Checks if a field is given
 template <auto Id_>
 struct Has {
-    bool operator()(const datamod::KeyValueSet<datamod::KeySet<decltype(Id_)>>& keys) const {
+    using KeySet = datamod::KeySet<decltype(Id_)>;
+
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         const auto& kv = datamod::key<Id_>(keys);
         return kv.has();
     }
@@ -69,7 +68,9 @@ struct Has {
 // Checks if a field is missing
 template <auto Id_>
 struct Missing {
-    bool operator()(const datamod::KeyValueSet<datamod::KeySet<decltype(Id_)>>& keys) const {
+    using KeySet = datamod::KeySet<decltype(Id_)>;
+
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         const auto& kv = datamod::key<Id_>(keys);
         return kv.isMissing();
     }
@@ -79,11 +80,12 @@ struct Missing {
 // Match a binary operation like >, >=, <, <=
 template <auto Id_, typename OpFunctor>
 struct MatchOp {
+    using KeySet = datamod::KeySet<decltype(Id_)>;
     using ValueType = datamod::KeyDefValueType_t<Id_>;
 
     ValueType value;
 
-    bool operator()(const datamod::KeyValueSet<datamod::KeySet<decltype(Id_)>>& keys) const {
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         const auto& kv = datamod::key<Id_>(keys);
 
         return (kv.has() && (OpFunctor{}(kv.get(), value)));
@@ -101,33 +103,39 @@ using LessEqual = MatchOp<Id_, std::less_equal<>>;
 
 
 // Compose a set of matchers with a fold AND expression
-template <typename... Matchers>
+template <typename Matcher, typename... Matchers>
 struct All {
-    std::tuple<Matchers...> matchers;
+    using KeySet = typename Matcher::KeySet;
+    std::tuple<Matcher, Matchers...> matchers;
 
-    template <typename KVSet, std::enable_if_t<datamod::IsKeyValueSet_v<std::decay_t<KVSet>>, bool> = true>
-    bool operator()(const KVSet& keys) const {
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         return std::apply([&](const auto&... mx) { return (mx(keys) && ... && true); }, matchers);
     }
 };
 
-template <typename... Matchers>
-All(Matchers&&... matchers) -> All<std::decay_t<Matchers>...>;
+template <typename Matcher, typename... Matchers>
+auto all(Matcher&& matcher, Matchers&& ... matchers) {
+    return All<std::decay_t<Matcher>, std::decay_t<Matchers>...>{
+        std::make_tuple(std::forward<Matcher>(matcher), std::forward<Matchers>(matchers)...)};
+}
 
 
 // Compose a set of matchers with a fold OR expression
-template <typename... Matchers>
+template <typename Matcher, typename... Matchers>
 struct Any {
-    std::tuple<Matchers...> matchers;
+    using KeySet = typename Matcher::KeySet;
+    std::tuple<Matcher, Matchers...> matchers;
 
-    template <typename KVSet, std::enable_if_t<datamod::IsKeyValueSet_v<std::decay_t<KVSet>>, bool> = true>
-    bool operator()(const KVSet& keys) const {
+    bool operator()(const datamod::KeyValueSet<KeySet>& keys) const {
         return std::apply([&](const auto&... mx) { return (mx(keys) || ... || false); }, matchers);
     }
 };
 
-template <typename... Matchers>
-Any(Matchers&&... matchers) -> Any<std::decay_t<Matchers>...>;
+template <typename Matcher, typename... Matchers>
+auto any(Matcher&& matcher, Matchers&& ... matchers) {
+    return Any<std::decay_t<Matcher>, std::decay_t<Matchers>...>{
+        std::make_tuple(std::forward<Matcher>(matcher), std::forward<Matchers>(matchers)...)};
+}
 
 
 }  // namespace multio::action::rules
