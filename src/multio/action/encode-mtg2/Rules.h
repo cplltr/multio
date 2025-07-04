@@ -14,10 +14,10 @@
 #include "multio/datamod/MarsMiscGeo.h"
 
 
-namespace multio::action::rules_gen {
+namespace multio::action::rules {
 using namespace rules;
 using namespace datamod;
 
-static const ExclusiveRuleList<MarsKeySet>& allRules();
+const ExclusiveRuleList<MarsKeySet>& allRules();
 
 }  // namespace multio::action::rules_gen

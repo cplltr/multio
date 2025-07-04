@@ -29,7 +29,15 @@ struct DynRule {
     // Combines matching and setting. If matched on `keys`, the setter is applied and true is returned.
     // If nothing matches only false is returned
     virtual bool apply(const datamod::KeyValueSet<MatchKeySet_>& keys, EncoderSections&) const = 0;
+    virtual std::ostream& print(std::ostream&) const = 0;
 };
+
+
+template <typename MatchKeySet>
+std::ostream& operator<<(std::ostream& os, const DynRule<MatchKeySet>& r) {
+    r.print(os);
+    return os;
+}
 
 
 template <typename MatchKeySet_, typename Derived>
@@ -37,6 +45,11 @@ struct DerivedRule : DynRule<MatchKeySet_> {
     using MatchKeySet = MatchKeySet_;
     bool apply(const datamod::KeyValueSet<MatchKeySet_>& keys, EncoderSections& conf) const override {
         return static_cast<const Derived&>(*this)(keys, conf);
+    }
+
+    std::ostream& print(std::ostream& os) const override {
+        os << static_cast<const Derived&>(*this);
+        return os;
     }
 };
 
@@ -87,6 +100,13 @@ auto rule(Matcher_&& matcher, Setters_&&... setters) {
 }
 
 
+template <typename Matcher, typename Setter>
+std::ostream& operator<<(std::ostream& os, const Rule<Matcher, Setter>& r) {
+    os << "rule(" << r.matcher << ", " << r.setter << ")";
+    return os;
+}
+
+
 // An ExclusiveRuleList contains a list of rules from which only one is expected to match and be applied
 // This concept is important to express combinations of orthogonal rules
 template <typename MatchKeySet_>
@@ -101,9 +121,9 @@ struct ExclusiveRuleList : DerivedRule<MatchKeySet_, ExclusiveRuleList<MatchKeyS
             if (rule->apply(kvs, conf)) {
                 if (appliedRule != nullptr) {
                     std::ostringstream oss;
-                    // using ReadWrite = typename std::decay_t<decltype(value)>::ReadWrite;
-                    // TODO print rule
                     oss << "ExclusizeRuleList: Multiple rules apply although they should be exclusive.";
+                    oss << " first match: " << *appliedRule << std::endl;
+                    oss << " second match: " << *rule.get() << std::endl;
                     oss << " Keys: " << kvs;
                     throw EncodeMtg2Exception(oss.str(), Here());
                 }
@@ -140,6 +160,23 @@ ExclusiveRuleList<MatchKeySet_> mergeRuleList(ExclusiveRuleList<MatchKeySet_>&& 
 }
 
 
+template <typename MatchKeySet>
+std::ostream& operator<<(std::ostream& os, const ExclusiveRuleList<MatchKeySet>& r) {
+    os << "exclusiveRuleList(";
+    bool first = true;
+    for (const auto& ri : r.rules) {
+        if (first) {
+            first = false;
+        }
+        else {
+            os << ", ";
+        }
+        os << *ri.get();
+    }
+    return os;
+}
+
+
 // Chains multiple rules on a struct matter.
 // If the first rule applies, all others also have to apply - otherwise an exception is thrown to indicate that the
 // key set is not definitely mapped. If the first rule does not apply, false is returned (and indicates that no
@@ -166,9 +203,18 @@ struct ChainedRuleList : DerivedRule<MatchKeySet_, ChainedRuleList<MatchKeySet_>
 
             if (!matched) {
                 std::ostringstream oss;
-                // TODO print rule
                 oss << "ChainedRuleList: KeySet is not definitely matched. Some previous rules matched but an "
-                       "intermediate rule failed.";
+                       "intermediate rule failed: ";
+               
+                int i = 0;
+                for (const auto& r: rules) {
+                    if (&r == &rule) {
+                        oss << " #" << i << " failed: " << *r.get() << std::endl;
+                        break;
+                    } else {
+                        oss << " #" << i << " matched: " << *r.get() << std::endl;
+                    }
+                }
                 oss << " Keys: " << kvs;
                 throw EncodeMtg2Exception(oss.str(), Here());
             }
@@ -202,6 +248,22 @@ ChainedRuleList<typename Rule_::MatchKeySet> chainedRuleList(Rule_&& rule, Rules
 
 //     return mergeRuleList(std::move(res), std::forward<More>(more)...);
 // }
+
+template <typename MatchKeySet>
+std::ostream& operator<<(std::ostream& os, const ChainedRuleList<MatchKeySet>& r) {
+    os << "exclusiveRuleList(";
+    bool first = true;
+    for (const auto& ri : r.rules) {
+        if (first) {
+            first = false;
+        }
+        else {
+            os << ", ";
+        }
+        os << *ri.get();
+    }
+    return os;
+}
 
 
 }  // namespace multio::action::rules

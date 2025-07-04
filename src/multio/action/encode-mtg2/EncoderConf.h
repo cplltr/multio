@@ -68,7 +68,7 @@ MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                    
                            "origin-configurator",                                                           //
                                                                                                             //
                            KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),      //
-                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.withDefault(0))  //
+                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.withDefault(97))  //
 };  // namespace datamod
 
 
@@ -454,6 +454,8 @@ struct KeySetAlter<KeySet<EncoderProductDef>> {
 
             if (pdtCat.has()) {
                 auto pdtNum = InferPdt<>{}.inferProductDefinitionTemplateNumber(pdtCat.get());
+                
+                std::cout << "Infered pdt: " << pdtNum << std::endl;
 
                 if (templateNumber.has() && templateNumber.get() != pdtNum) {
                     std::ostringstream oss;
@@ -462,6 +464,7 @@ struct KeySetAlter<KeySet<EncoderProductDef>> {
                     throw action::EncodeMtg2Exception(oss.str(), Here());
                 }
                 templateNumber.set(pdtNum);
+                std::cout << "Infered pdt: " << templateNumber << std::endl;
             }
         }
 

@@ -26,11 +26,49 @@
 
 namespace multio::test {
 
-auto mkMd() {
+auto mkAifsSingleBaseMd() {
     return message::Metadata{
         {"class", "ai"},  {"model", "aifs-single"}, {"expver", "0001"}, {"type", "fc"},   {"stream", "oper"},
         {"repres", "gg"}, {"packing", "ccsds"},     {"levelist", 700},  {"grid", "N320"}, {"step", 6},
         {"time", 0},      {"date", 20230901},       {"levtype", "pl"},  {"param", 133}};
+}
+
+auto mkMd() {
+    return mkAifsSingleBaseMd();
+}
+
+
+std::vector<message::Metadata> aifsSingleParams() {
+    std::vector<message::Metadata> res;
+
+    // SFC params
+    for (auto param : std::vector<int>{{134, 151, 165, 166, 167, 168, 235, 141, 136, 143, 228}}) {
+        res.push_back({{"param", param}, {"levtype", "sfc"}});
+    }
+
+    // PL params
+    for (auto param : std::vector<int>{{129, 130, 131, 132, 133, 135}}) {
+        for (auto levelist : std::vector<int>{{50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000}}) {
+            res.push_back({{"param", param}, {"levtype", "pl"}, {"levelist", levelist}});
+        }
+    }
+
+    return res;
+}
+
+std::vector<message::Metadata> mkAifsSingleMd() {
+    std::vector<message::Metadata> res;
+    for (auto step : std::vector<int>{{6, 12, 18, 24, 32}}) {
+        auto md = mkAifsSingleBaseMd();
+        md.set("step", step);
+
+        for (auto param : aifsSingleParams()) {
+            md.updateOverwrite(param);
+            res.push_back(std::move(md));
+        }
+    }
+
+    return res;
 }
 
 
@@ -41,14 +79,14 @@ CASE("Test rules gen matchers") {
 
     static auto ruleSet = exclusiveRuleList(
         // Branch for grids
-        chainedRuleList(rule(all(Has<MarsKeys::GRID>{}, NoneOf<MarsKeys::LEVTYPE>{{"al"}})),
-                        rule(OneOf<MarsKeys::PARAM>{{1, 3, 4}},
-                             setAll(
-                                 SetKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                                     TimeExtent::PointInTime},  //
-                                 SetKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>{
-                                     "heightAboveGround"}  //
-                                 ))),
+        chainedRuleList(
+            rule(all(Has<MarsKeys::GRID>{}, NoneOf<MarsKeys::LEVTYPE>{{"al"}})),
+            rule(OneOf<MarsKeys::PARAM>{{1, 3, 4}},
+                 setAll(setKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                            {TimeExtent::PointInTime}),  //
+                        setKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>(
+                            {"heightAboveGround"})  //
+                        ))),
 
         // Branch for spherical harmonics
         chainedRuleList(rule(all(Has<MarsKeys::TRUNCATION>{}, NoneOf<MarsKeys::LEVTYPE>{{"al"}}))),
@@ -63,7 +101,7 @@ CASE("Test rules gen matchers") {
         // Nothing should match the outer rule, which is allowed to not match
         EXPECT(ruleSet(mars, sections) != true);
     }
-    
+
     {
         auto md = mkMd();
         md.set("param", 1);
@@ -72,23 +110,44 @@ CASE("Test rules gen matchers") {
         EncoderSections sections;
 
         EXPECT(ruleSet(mars, sections));
-        EXPECT_EQUAL((keyPath<EncoderSectionsDef::Product, EncoderProductDef::Level, EncoderLevelDef::Type>(sections).get()),
-                     "heightAboveGround");
-        EXPECT_EQUAL((keyPath<EncoderSectionsDef::Product, EncoderProductDef::PDTCat, PDTCatDef::TimeExtent>(sections).get()),
-                     TimeExtent::PointInTime);
+        EXPECT_EQUAL(
+            (keyPath<EncoderSectionsDef::Product, EncoderProductDef::Level, EncoderLevelDef::Type>(sections).get()),
+            "heightAboveGround");
+        EXPECT_EQUAL(
+            (keyPath<EncoderSectionsDef::Product, EncoderProductDef::PDTCat, PDTCatDef::TimeExtent>(sections).get()),
+            TimeExtent::PointInTime);
     }
-    
+
     {
         auto md = mkMd();
-        md.set("param", 42); // Not included in rule
+        md.set("param", 42);  // Not included in rule
 
         auto mars = read(MarsKeySet{}, md);
         EncoderSections sections;
 
-        // First rule matches because grid is given, but then no param matches - the rule is not fully determined and throws
+        // First rule matches because grid is given, but then no param matches - the rule is not fully determined and
+        // throws
         EXPECT_THROWS(ruleSet(mars, sections));
     }
 };
+
+CASE("Test real rules matchers with AIFS single keys") {
+    using namespace multio::action::rules;
+    using namespace multio::action;
+    using namespace multio::datamod;
+
+    for (auto md : mkAifsSingleMd()) {
+        auto mars = read(MarsKeySet{}, md);
+        EncoderSections sections;
+
+        EXPECT(action::rules::allRules()(mars, sections));
+        // std::cout << "After rule apply: " << sections << std::endl;
+        EXPECT_NO_THROW(alterAndValidate(sections));
+        // std::cout << "After alter: " << sections << std::endl;
+        // EXPECT_EQUAL((keyPath<EncoderSectionsDef::Product, EncoderProductDef::TemplateNumber>(sections).get()), 0);
+        EXPECT((keyPath<EncoderSectionsDef::Product, EncoderProductDef::TemplateNumber>(sections).has()));
+    }
+}
 
 }  // namespace multio::test
 

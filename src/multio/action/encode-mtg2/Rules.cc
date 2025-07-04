@@ -9,7 +9,7 @@
 #include "multio/datamod/MarsMiscGeo.h"
 
 
-namespace multio::action::rules_gen {
+namespace multio::action::rules {
 using namespace rules;
 using namespace datamod;
 
@@ -32,34 +32,56 @@ auto matchChemicalOptical() {
     return all(Has<MarsKeys::CHEM>{}, Has<MarsKeys::WAVELENGTH>{});
 }
 
-
-std::unordered_set<KeyDefValueType_t<MarsKeys::PARAM>> paramRange(KeyDefValueType_t<MarsKeys::PARAM> start,
-                                                                  KeyDefValueType_t<MarsKeys::PARAM> end) {
-    using T = KeyDefValueType_t<MarsKeys::PARAM>;
-    std::unordered_set<T> res;
-    for (T i = start; i <= end; ++i) {
-        res.insert(i);
-    }
-    return res;
-}
-
-auto matchParams(std::unordered_set<KeyDefValueType_t<MarsKeys::PARAM>> params) {
-    return OneOf<MarsKeys::PARAM>{std::move(params)};
-}
-
-auto matchParams(KeyDefValueType_t<MarsKeys::PARAM> param) {
-    return OneOf<MarsKeys::PARAM>{{param}};
-}
-
-template <typename Arg, typename... More, std::enable_if_t<((sizeof...(More)) > 0), bool> = true>
-auto matchParams(Arg&& arg, More&&... more) {
-    auto res = matchParams(std::forward<Arg>(arg));
-    (res.values.merge(matchParams(std::forward<More>(more)).values), ...);
-    return res;
-}
-
 auto matchLevType(const std::string& lt) {
     return OneOf<MarsKeys::LEVTYPE>{{lt}};
+}
+
+
+//-----------------------------------------------------------------------------
+// Param matchers
+//-----------------------------------------------------------------------------
+
+Range<MarsKeys::PARAM> paramRange(KeyDefValueType_t<MarsKeys::PARAM> start, KeyDefValueType_t<MarsKeys::PARAM> end) {
+    return Range<MarsKeys::PARAM>{start, end};
+}
+
+using ParamMatcher = Any<OneOf<MarsKeys::PARAM>, Ranges<MarsKeys::PARAM>>;
+
+ParamMatcher matchParams(std::vector<KeyDefValueType_t<MarsKeys::PARAM>> params) {
+    return ParamMatcher{std::make_tuple(OneOf<MarsKeys::PARAM>{std::move(params)}, Ranges<MarsKeys::PARAM>{{}})};
+}
+
+ParamMatcher matchParams(KeyDefValueType_t<MarsKeys::PARAM> param) {
+    return matchParams(std::vector{param});
+}
+
+ParamMatcher matchParams(Range<MarsKeys::PARAM> range) {
+    return ParamMatcher{std::make_tuple(OneOf<MarsKeys::PARAM>{{}}, Ranges<MarsKeys::PARAM>{{range}})};
+}
+
+ParamMatcher matchParams(ParamMatcher m) {
+    return m;
+}
+
+ParamMatcher matchParams(ParamMatcher m1, ParamMatcher&& m2) {
+    auto& m1Vec = std::get<0>(m1.matchers).values;
+    auto& m2Vec = std::get<0>(m2.matchers).values;
+
+    m1Vec.insert(m1Vec.end(), std::make_move_iterator(m2Vec.begin()), std::make_move_iterator(m2Vec.end()));
+
+
+    auto& m1Ranges = std::get<1>(m1.matchers).ranges;
+    auto& m2Ranges = std::get<1>(m2.matchers).ranges;
+
+    m1Ranges.insert(m1Ranges.end(), std::make_move_iterator(m2Ranges.begin()), std::make_move_iterator(m2Ranges.end()));
+
+    return m1;
+}
+
+template <typename Arg, typename Arg2, typename... More>
+ParamMatcher matchParams(Arg&& arg, Arg2&& arg2, More&&... more) {
+    return matchParams(matchParams(matchParams(std::forward<Arg>(arg)), matchParams(std::forward<Arg2>(arg2))),
+                       std::forward<More>(more)...);
 }
 
 
@@ -69,95 +91,95 @@ auto matchLevType(const std::string& lt) {
 
 // Category setters
 auto pointInTime() {
-    return setAll(
-        SetKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{TimeExtent::PointInTime},
-        SetKey<EncoderProductDef::PointInTime, EncoderSectionsDef::Product>{});
+    return setAll(setKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {TimeExtent::PointInTime}),
+                  setKey<EncoderProductDef::PointInTime, EncoderSectionsDef::Product>());
 }
 auto timeRange(const std::string& type, const std::string& typeOfStatisticalProcessing) {
     return setAll(
-        SetKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{TimeExtent::TimeRange},
-        SetKey<EncoderTimeRangeDef::Type, EncoderSectionsDef::Product, EncoderProductDef::TimeRange>{type},
-        SetKey<EncoderTimeRangeDef::TypeOfStatisticalProcessing, EncoderSectionsDef::Product,
-               EncoderProductDef::TimeRange>{typeOfStatisticalProcessing});
+        setKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>({TimeExtent::TimeRange}),
+        setKey<EncoderTimeRangeDef::Type, EncoderSectionsDef::Product, EncoderProductDef::TimeRange>({type}),
+        setKey<EncoderTimeRangeDef::TypeOfStatisticalProcessing, EncoderSectionsDef::Product,
+               EncoderProductDef::TimeRange>({typeOfStatisticalProcessing}));
 }
 auto overallLengthOfTimeRange(const std::string& l) {
-    return SetKey<EncoderTimeRangeDef::OverallLengthOfTimeRange, EncoderSectionsDef::Product,
-                  EncoderProductDef::TimeRange>{l};
+    return setKey<EncoderTimeRangeDef::OverallLengthOfTimeRange, EncoderSectionsDef::Product,
+                  EncoderProductDef::TimeRange>({l});
 }
 
 auto ensemble() {
-    return SetKey<PDTCatDef::ProcessSubType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-        ProcessSubType::Ensemble};
+    return setKey<PDTCatDef::ProcessSubType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+        {ProcessSubType::Ensemble});
 }
 auto largeEnsemble() {
-    return SetKey<PDTCatDef::ProcessSubType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-        ProcessSubType::LargeEnsemble};
+    return setKey<PDTCatDef::ProcessSubType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+        {ProcessSubType::LargeEnsemble});
 }
 auto reforecast() {
-    return SetKey<PDTCatDef::ProcessType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-        ProcessType::Reforecast};
+    return setKey<PDTCatDef::ProcessType, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+        {ProcessType::Reforecast});
 }
 
 auto chemical() {
-    return setAll(SetKey<EncoderProductDef::Chemical, EncoderSectionsDef::Product>{},
-                  SetKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductCategory::Chemical});
+    return setAll(setKey<EncoderProductDef::Chemical, EncoderSectionsDef::Product>(),
+                  setKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductCategory::Chemical}));
 }
 
 auto periodRange() {
-    return setAll(SetKey<EncoderProductDef::PeriodRange, EncoderSectionsDef::Product>{},
-                  SetKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductCategory::Wave},
-                  SetKey<PDTCatDef::ProductSubCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductSubCategory::PeriodRange});
+    return setAll(setKey<EncoderProductDef::PeriodRange, EncoderSectionsDef::Product>(),
+                  setKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductCategory::Wave}),
+                  setKey<PDTCatDef::ProductSubCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductSubCategory::PeriodRange}));
 }
 
 auto dirFreq() {
-    return setAll(SetKey<EncoderProductDef::DirFreq, EncoderSectionsDef::Product>{},
-                  SetKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductCategory::Wave},
-                  SetKey<PDTCatDef::ProductSubCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductSubCategory::SpectraList});
+    return setAll(setKey<EncoderProductDef::DirFreq, EncoderSectionsDef::Product>(),
+                  setKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductCategory::Wave}),
+                  setKey<PDTCatDef::ProductSubCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductSubCategory::SpectraList}));
 }
 
 auto satellite() {
-    return setAll(SetKey<EncoderProductDef::Satellite, EncoderSectionsDef::Product>{},
-                  SetKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      ProductCategory::Satellite});
+    return setAll(setKey<EncoderProductDef::Satellite, EncoderSectionsDef::Product>(),
+                  setKey<PDTCatDef::ProductCategory, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {ProductCategory::Satellite}));
 }
 
 auto randomPattern() {
-    return setAll(SetKey<EncoderProductDef::RandomPatterns, EncoderSectionsDef::Product>{},
-                  SetKey<PDTCatDef::SpatialExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>{
-                      SpatialExtent::RandomPatterns});
+    return setAll(setKey<EncoderProductDef::RandomPatterns, EncoderSectionsDef::Product>(),
+                  setKey<PDTCatDef::SpatialExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
+                      {SpatialExtent::RandomPatterns}));
 }
 
 // Other setters
 
 auto typeOfLevel(const std::string& lvl) {
-    return SetKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>{lvl};
+    return setKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>({lvl});
 }
 auto localUse(std::int64_t num) {
-    return SetKey<EncoderLocalUseDef::TemplateNumber, EncoderSectionsDef::LocalUse>{num};
+    return setKey<EncoderLocalUseDef::TemplateNumber, EncoderSectionsDef::LocalUse>({num});
 }
 
 auto dataRepres(std::int64_t num) {
-    return SetKey<EncoderDataRepresDef::TemplateNumber, EncoderSectionsDef::DataRepres>{num};
+    return setKey<EncoderDataRepresDef::TemplateNumber, EncoderSectionsDef::DataRepres>({num});
 }
 
 
 auto tablesConfig(const std::string& type) {
-    return SetKey<EncoderTablesDef::Type, EncoderSectionsDef::Identification, EncoderIdentificationDef::Tables>{type};
+    return setKey<EncoderTablesDef::Type, EncoderSectionsDef::Identification, EncoderIdentificationDef::Tables>({type});
 }
 
 auto tablesVersion(std::int64_t version) {
-    return SetKey<EncoderTablesDef::TablesVersion, EncoderSectionsDef::Identification,
-                  EncoderIdentificationDef::Tables>{version};
+    return setKey<EncoderTablesDef::TablesVersion, EncoderSectionsDef::Identification,
+                  EncoderIdentificationDef::Tables>({version});
 }
 
 auto localTablesVersion(std::int64_t version) {
-    return SetKey<EncoderTablesDef::LocalTablesVersion, EncoderSectionsDef::Identification,
-                  EncoderIdentificationDef::Tables>{version};
+    return setKey<EncoderTablesDef::LocalTablesVersion, EncoderSectionsDef::Identification,
+                  EncoderIdentificationDef::Tables>({version});
 }
 
 
@@ -167,7 +189,7 @@ auto localTablesVersion(std::int64_t version) {
 
 auto makeGridRule(datamod::Repres repres, std::int64_t num) {
     return rule(OneOf<MarsKeys::REPRES>{{repres}},
-                SetKey<EncoderGridDef::TemplateNumber, EncoderSectionsDef::Grid>{num});
+                setKey<EncoderGridDef::TemplateNumber, EncoderSectionsDef::Grid>({num}));
 }
 
 
@@ -183,7 +205,7 @@ auto localSectionRules() {
     return exclusiveRuleList(  //
         rule(all(Missing<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1)),
         rule(all(Has<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}), localUse(36)),
-        rule(all(Missing<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1001)));
+        rule(all(Missing<MarsKeys::ANOFFSET>{}, OneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1001)));
 }
 
 auto processTypesRules() {
@@ -223,8 +245,9 @@ auto paramSFCRules() {
         rule(all(matchLevType("sfc"), matchParams(228023)),  //
              pointInTime(), typeOfLevel("cloudbase")),       //
         rule(all(matchLevType("sfc"),                        //
-                 matchParams(59, 78, 79, 136, 137, 164, 206, paramRange(162059, 162063), 162071, 162072, 162093, 228044,
-                             228050, 228052, 228088, 228089, 228090, 228164, 260132)),       //
+                 matchParams(                                //
+                     59, 78, 79, 136, 137, 164, 206, paramRange(162059, 162063), 162071, 162072, 162093, 228044, 228050,
+                     228052, 228088, 228089, 228090, 228164, 260132)),                       //
              pointInTime(), typeOfLevel("entireAtmosphere")),                                //
         rule(all(matchLevType("sfc"), matchParams(228007, 228011)),                          //
              pointInTime(), typeOfLevel("entireLake")),                                      //
@@ -328,11 +351,12 @@ auto paramSFCRules() {
              typeOfLevel("surface"),                                             //
              tablesConfig("custom"), localTablesVersion(0), tablesVersion(30)),  //
         rule(all(matchLevType("sfc"),                                            //
-                 matchParams(8, 9, 20, 44, 45, 47, 50, 57, 58, paramRange(142, 147), 169, 175, 176, 177, 180, 181, 182,
-                             189, 195, 196, 197, 205, 210, 211, 213, 228, 239, 240, 3062, 3099,
-                             paramRange(162100, 162113), paramRange(222001, 222256), 228021, 228022, 228129, 228130,
-                             228143, 228144, 228216, 228228, 228251, 231001, 231002, 231003, 231005, 231010, 231012,
-                             231057, 231058, paramRange(233000, 233031), 260259)),                 //
+                 matchParams(                                                    //
+                     8, 9, 20, 44, 45, 47, 50, 57, 58, paramRange(142, 147), 169, 175, 176, 177, 180, 181, 182, 189,
+                     195, 196, 197, 205, 210, 211, 213, 228, 239, 240, 3062, 3099, paramRange(162100, 162113),
+                     paramRange(222001, 222256), 228021, 228022, 228129, 228130, 228143, 228144, 228216, 228228, 228251,
+                     231001, 231002, 231003, 231005, 231010, 231012, 231057, 231058, paramRange(233000, 233031),
+                     260259)),                                                                     //
              timeRange("since-beginning-of-forecast", "accumul"), overallLengthOfTimeRange("1h"),  //
              typeOfLevel("surface")),                                                              //
         rule(all(matchLevType("sfc"),                                                              //
@@ -392,31 +416,33 @@ auto paramSFCRules() {
              timeRange("fixed-timerange", "severity"), overallLengthOfTimeRange("6h"),             //
              typeOfLevel("surface")),                                                              //
         rule(all(matchLevType("sfc"),                                                              //
-                 matchParams(paramRange(15, 18), paramRange(26, 32), 33, paramRange(34, 43), paramRange(66, 67), 74,
-                             129, 134, 139, 141, 148, 159, paramRange(160, 163), 170, paramRange(172, 174),
-                             paramRange(186, 188), 198, paramRange(229, 232), paramRange(234, 236), 238,
-                             paramRange(243, 245), 3020, 3067, 160198, 200199, 210200, 210201, 210202, 228003, 228012,
-                             paramRange(210186, 210191), 210262, 210263, 210264, paramRange(228015, 228020), 228024,
-                             228032, paramRange(228046, 228048), 228141, paramRange(228217, 228221), 260004, 260005,
-                             260015, 260048, 260109, 260121, 260123, 260255, 260289, 260509, 261001, 261002, 261014,
-                             261015, 261016, 261018, 262000, 262100, 262139, 262140, 262144, 262124)),  //
-             pointInTime(),                                                                             //
-             typeOfLevel("surface")),                                                                   //
-        rule(all(matchLevType("sfc"),                                                                   //
-                 matchParams(paramRange(228083, 228085)),                                               //
-                 matchChemical()),                                                                      //
-             pointInTime(),                                                                             //
+                 matchParams(                                                                      //
+                     paramRange(15, 18), paramRange(26, 32), 33, paramRange(34, 43), paramRange(66, 67), 74, 129, 134,
+                     139, 141, 148, 159, paramRange(160, 163), 170, paramRange(172, 174), paramRange(186, 188), 198,
+                     paramRange(229, 232), paramRange(234, 236), 238, paramRange(243, 245), 3020, 3067, 160198, 200199,
+                     210200, 210201, 210202, 228003, 228012, paramRange(210186, 210191), 210262, 210263, 210264,
+                     paramRange(228015, 228020), 228024, 228032, paramRange(228046, 228048), 228141,
+                     paramRange(228217, 228221), 260004, 260005, 260015, 260048, 260109, 260121, 260123, 260255, 260289,
+                     260509, 261001, 261002, 261014, 261015, 261016, 261018, 262000, 262100, 262139, 262140, 262144,
+                     262124)),                             //
+             pointInTime(),                                //
+             typeOfLevel("surface")),                      //
+        rule(all(matchLevType("sfc"),                      //
+                 matchParams(paramRange(228083, 228085)),  //
+                 matchChemical()),                         //
+             pointInTime(),                                //
              chemical(),
              typeOfLevel("surface")),  //
         rule(all(matchLevType("sfc"),  //
-                 matchParams(paramRange(140098, 140105), paramRange(140112, 140113), paramRange(140121, 140129),
-                             paramRange(140207, 140209), paramRange(140211, 140212), paramRange(140214, 140232),
-                             paramRange(140234, 140239), 140244, paramRange(140252, 140254))),  //
-             pointInTime(),                                                                     //
-             typeOfLevel("surface")),                                                           //
-        rule(all(matchLevType("sfc"),                                                           //
-                 matchParams(paramRange(140114, 140120))),                                      //
-             pointInTime(),                                                                     //
+                 matchParams(          //
+                     paramRange(140098, 140105), paramRange(140112, 140113), paramRange(140121, 140129),
+                     paramRange(140207, 140209), paramRange(140211, 140212), paramRange(140214, 140232),
+                     paramRange(140234, 140239), 140244, paramRange(140252, 140254))),  //
+             pointInTime(),                                                             //
+             typeOfLevel("surface")),                                                   //
+        rule(all(matchLevType("sfc"),                                                   //
+                 matchParams(paramRange(140114, 140120))),                              //
+             pointInTime(),                                                             //
              periodRange(),
              typeOfLevel("surface")),                              //
         rule(all(matchLevType("sfc"),                              //
@@ -656,7 +682,7 @@ auto paramRulesSH() {
 // Big rule tree...
 //-----------------------------------------------------------------------------
 
-static const ExclusiveRuleList<MarsKeySet>& allRules() {
+const ExclusiveRuleList<MarsKeySet>& allRules() {
     static auto all_ = exclusiveRuleList(
         // Branch for grids
         chainedRuleList(                                                          //
@@ -690,4 +716,4 @@ static const ExclusiveRuleList<MarsKeySet>& allRules() {
     return all_;
 }
 
-}  // namespace multio::action::rules_gen
+}  // namespace multio::action::rules

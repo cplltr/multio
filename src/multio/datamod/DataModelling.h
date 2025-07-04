@@ -1283,6 +1283,13 @@ KV& alter(const KVD& kvd, KV& kv) {
             kv.set(kvd.defaultValue());
         }
     }
+
+    // Check for nested alter recursively
+    if constexpr (IsKeyValueSet_v<typename std::decay_t<KV>::ValueType>) {
+        if (kv.has()) {
+            alter(kv.modify());
+        }
+    }
     return kv;
 }
 
@@ -1336,6 +1343,7 @@ KVS& alterKeys(KVS& kvs) {
 template <typename KVS, std::enable_if_t<(IsKeyValueSet_v<std::decay_t<KVS>>), bool> = true>
 KVS& alter(KVS& kvs) {
     alterKeys(kvs);
+    
     // Now call the Keyset specific alter function if given
     std::decay_t<KVS>::alter(kvs);
     return kvs;
@@ -1675,7 +1683,7 @@ Container write(KVS&& kvs) {
 
 template <typename KeySet_, typename Container>
 struct WriteSpec<KeyValueSet<KeySet_>, Container> {
-    template <typename Val, std::enable_if_t<std::is_same_v<std::decay_t<Val>, KeyValueSet<KeySet_>>, bool> = true>
+    template <typename Val, std::enable_if_t<(std::is_same_v<std::decay_t<Val>, KeyValueSet<KeySet_>> && KeyValueWriter<std::decay_t<Container>>::isSpecialized), bool> = true>
     static Container write(Val&& val) noexcept(noexcept(datamod::write<Container>(std::forward<Val>(val)))) {
         return datamod::write<Container>(std::forward<Val>(val));
     }
@@ -1740,7 +1748,6 @@ decltype(auto) keyPath(KVS& conf) {
 //-----------------------------------------------------------------------------
 
 
-// Printing something readable to ostream
 template <typename KeySet_>
 std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<KeySet_>& kvs) {
     os << "{";
@@ -1769,6 +1776,24 @@ std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValueSet<Ke
     return os;
 }
 
+
+// Printing something readable to ostream
+template <auto id_>
+std::ostream& operator<<(std::ostream& os, const multio::datamod::KeyValue<id_>& kv) {
+    using ReadWrite = typename multio::datamod::KeyValue<id_>::ReadWrite;
+
+    // os << KeySetName_v<decltype(id_)> << "::" << key<id_>().key() << "=";
+    os << util::typeToString<KeyId<id_>>() << "=";
+    if (kv.isMissing()) {
+        os << "<MISSING>";
+    }
+    else {
+        os << ReadWrite::template write<std::ostream>(kv.get());
+    }
+    return os;
+}
+
+
 }  // namespace multio::datamod
 
 
@@ -1784,7 +1809,7 @@ struct TypeToString<datamod::KeySet<EnumType>> {
 template <auto id>
 struct TypeToString<datamod::KeyId<id>> {
     std::string operator()() const {
-        return std::string(datamod::KeySetName_v<decltype(id)>) + std::string("::") + datamod::key<id>().key();
+        return std::string(datamod::KeySetName_v<decltype(id)>) + std::string("::") + std::string(datamod::key<id>().key());
     };
 };
 
