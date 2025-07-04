@@ -155,6 +155,8 @@ list( APPEND multio_datamod_srcs
     datamod/MarsMiscGeo.h
     datamod/MarsTypes.cc
     datamod/MarsTypes.h
+    datamod/GribTypes.cc
+    datamod/GribTypes.h
 )
 
 list( APPEND multio_server_srcs

@@ -24,6 +24,8 @@ ecbuild_add_library(
         rules/Matcher.h
         rules/Setter.h
         rules/Rule.h
+        section-setter/SectionSetter.cc
+        section-setter/SectionSetter.h
         generated/InferPDT.h
         generated/InferPDTTest.h
 

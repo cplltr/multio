@@ -74,7 +74,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MarsKeys::CHEM, std::int64_t>{"chem"}.tagOptional(),              //
     KeyDef<MarsKeys::WAVELENGTH, std::int64_t>{"wavelength"}.tagOptional(),  //
     KeyDef<MarsKeys::MODEL, std::string>{"model"}.tagOptional(),             //
-    KeyDef<MarsKeys::LEVTYPE, std::string>{"levtype"}.tagOptional(),         //
+    KeyDef<MarsKeys::LEVTYPE, LevType>{"levtype"}.tagOptional(),         //
     KeyDef<MarsKeys::LEVELIST, std::int64_t>{"levelist"}.tagOptional(),      //
     KeyDef<MarsKeys::DIRECTION, std::int64_t>{"direction"}.tagOptional(),    //
     KeyDef<MarsKeys::FREQUENCY, std::int64_t>{"frequency"}.tagOptional(),    //
@@ -163,7 +163,7 @@ struct KeySetAlter<EncoderCacheMarsKeySet> {
 
         const auto& levtype = key<MarsKeys::LEVTYPE>(cacheKeys);
 
-        if (!levtype.isMissing() && levtype.get() == "ml") {
+        if (!levtype.isMissing() && levtype.get() == LevType::ML) {
             key<MarsKeys::LEVELIST>(cacheKeys).setMissing();
         }
 
@@ -247,6 +247,9 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MiscKeys::MethodNumber, std::int64_t>{"methodNumber"}.tagOptional(),                                      //
     KeyDef<MiscKeys::SystemNumber, std::int64_t>{"systemNumber"}.tagOptional());                                     //
 
+
+using MiscKeySet = KeySet<MiscKeys>;
+using MiscKeyValueSet = KeyValueSet<MiscKeySet>;
 
 //-----------------------------------------------------------------------------
 // Geometry keys - gg
@@ -332,6 +335,8 @@ MULTIO_KEY_SET_DESCRIPTION(
 //-----------------------------------------------------------------------------
 // Evaluate geometry from mars
 //-----------------------------------------------------------------------------
+
+using Geometry = std::variant<KeyValueSet<GeoGG>, KeyValueSet<GeoSH>, KeyValueSet<GeoHEALPix>>;
 
 template <typename KVS, typename Func>
 decltype(auto) withScopedGeometryKeySet(const KVS& kvs, Func&& func) {

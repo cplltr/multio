@@ -15,6 +15,7 @@
 #include "multio/action/encode-mtg2/generated/InferPDT.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
+#include "multio/datamod/GribTypes.h"
 
 #include <memory>
 
@@ -64,10 +65,10 @@ enum class EncoderOriginDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderOriginDef;
-MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                                //
-                           "origin-configurator",                                                           //
-                                                                                                            //
-                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),      //
+MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                                 //
+                           "origin-configurator",                                                            //
+                                                                                                             //
+                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),       //
                            KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.withDefault(97))  //
 };  // namespace datamod
 
@@ -302,10 +303,10 @@ enum class EncoderLevelDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderLevelDef;
-MULTIO_KEY_SET_DESCRIPTION(EncoderLevelDef,                                                            //
-                           "level-configurator",                                                       //
-                                                                                                       //
-                           KeyDef<EncoderLevelDef::Type, std::string>{"type"}.withDefault("default"))  //
+MULTIO_KEY_SET_DESCRIPTION(EncoderLevelDef,                                              //
+                           "level-configurator",                                         //
+                                                                                         //
+                           KeyDef<EncoderLevelDef::Type, datamod::TypeOfLevel>{"type"})  //
 };  // namespace datamod
 
 // Random patterns config
@@ -454,7 +455,7 @@ struct KeySetAlter<KeySet<EncoderProductDef>> {
 
             if (pdtCat.has()) {
                 auto pdtNum = InferPdt<>{}.inferProductDefinitionTemplateNumber(pdtCat.get());
-                
+
                 if (templateNumber.has() && templateNumber.get() != pdtNum) {
                     std::ostringstream oss;
                     oss << "EncoderProduct has a template number and PDT categories specified, but the generated PDT "
