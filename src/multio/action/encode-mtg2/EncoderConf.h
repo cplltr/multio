@@ -455,8 +455,6 @@ struct KeySetAlter<KeySet<EncoderProductDef>> {
             if (pdtCat.has()) {
                 auto pdtNum = InferPdt<>{}.inferProductDefinitionTemplateNumber(pdtCat.get());
                 
-                std::cout << "Infered pdt: " << pdtNum << std::endl;
-
                 if (templateNumber.has() && templateNumber.get() != pdtNum) {
                     std::ostringstream oss;
                     oss << "EncoderProduct has a template number and PDT categories specified, but the generated PDT "
@@ -464,7 +462,6 @@ struct KeySetAlter<KeySet<EncoderProductDef>> {
                     throw action::EncodeMtg2Exception(oss.str(), Here());
                 }
                 templateNumber.set(pdtNum);
-                std::cout << "Infered pdt: " << templateNumber << std::endl;
             }
         }
 
