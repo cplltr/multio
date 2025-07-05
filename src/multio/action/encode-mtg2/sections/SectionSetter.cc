@@ -9,7 +9,7 @@
  */
 
 
-#include "multio/action/encode-mtg2/section-setter/SectionSetter.h"
+#include "multio/action/encode-mtg2/sections/SectionSetter.h"
 #include "multio/util/MioGribHandle.h"
 
 

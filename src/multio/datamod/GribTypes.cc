@@ -9,13 +9,7 @@
  */
 
 #include "multio/datamod/GribTypes.h"
-
-#include "eckit/utils/Overloaded.h"
-#include "metkit/mars/Param.h"
-
 #include "multio/datamod/DataModellingException.h"
-
-#include <regex>
 
 
 namespace multio::datamod {
@@ -336,37 +330,37 @@ std::string WriteSpec<TypeOfStatisticalProcessing>::write(TypeOfStatisticalProce
         case TypeOfStatisticalProcessing::Average:
             return "average";
         case TypeOfStatisticalProcessing::Accumulation:
-            return "accumulation";
+            return "accumul";
         case TypeOfStatisticalProcessing::Maximum:
-            return "maximum";
+            return "max";
         case TypeOfStatisticalProcessing::Minimum:
-            return "minimum";
+            return "min";
         case TypeOfStatisticalProcessing::Difference:
             return "difference";
-        case TypeOfStatisticalProcessing::Root:
-            return "root";
-        case TypeOfStatisticalProcessing::Standard:
-            return "standard";
+        case TypeOfStatisticalProcessing::RootMeanSquare:
+            return "root-mean-square";
+        case TypeOfStatisticalProcessing::StandardDeviation:
+            return "standard-deviation";
         case TypeOfStatisticalProcessing::Covariance:
             return "covariance";
         case TypeOfStatisticalProcessing::InverseDifference:
             return "inverse-difference";  // TODO rename? stepType is sdiff
         case TypeOfStatisticalProcessing::Ratio:
             return "ratio";
-        case TypeOfStatisticalProcessing::Standardized:
-            return "standardized";
+        case TypeOfStatisticalProcessing::StandardizedAnomaly:
+            return "standardized-anomaly";
         case TypeOfStatisticalProcessing::Summation:
             return "summation";
-        case TypeOfStatisticalProcessing::Return:
-            return "return";
+        case TypeOfStatisticalProcessing::ReturnPeriod:
+            return "return-period";
         case TypeOfStatisticalProcessing::Median:
             return "median";
         case TypeOfStatisticalProcessing::Severity:
             return "severity";
         case TypeOfStatisticalProcessing::Mode:
             return "mode";
-        case TypeOfStatisticalProcessing::Index:
-            return "index";
+        case TypeOfStatisticalProcessing::IndexProcessing:
+            return "index-processing";
         default:
             throw DataModellingException(
                 "WriteSpec<TypeOfStatisticalProcessing>::write: Unexpected value for TypeOfStatisticalProcessing",
@@ -379,22 +373,22 @@ TypeOfStatisticalProcessing ReadSpec<TypeOfStatisticalProcessing>::read(const st
     // May use a vector
     static const std::vector<std::pair<std::string, TypeOfStatisticalProcessing>> typesOfStat{
         {"average", TypeOfStatisticalProcessing::Average},
-        {"accumulation", TypeOfStatisticalProcessing::Accumulation},
-        {"maximum", TypeOfStatisticalProcessing::Maximum},
-        {"minimum", TypeOfStatisticalProcessing::Minimum},
+        {"accumul", TypeOfStatisticalProcessing::Accumulation},
+        {"max", TypeOfStatisticalProcessing::Maximum},
+        {"min", TypeOfStatisticalProcessing::Minimum},
         {"difference", TypeOfStatisticalProcessing::Difference},
-        {"root", TypeOfStatisticalProcessing::Root},
-        {"standard", TypeOfStatisticalProcessing::Standard},
+        {"root-mean-square", TypeOfStatisticalProcessing::RootMeanSquare},
+        {"standard-deviation", TypeOfStatisticalProcessing::StandardDeviation},
         {"covariance", TypeOfStatisticalProcessing::Covariance},
         {"inverse-difference", TypeOfStatisticalProcessing::InverseDifference},  // TODO rename? stepType is sdiff
         {"ratio", TypeOfStatisticalProcessing::Ratio},
-        {"standardized", TypeOfStatisticalProcessing::Standardized},
+        {"standardized-anomaly", TypeOfStatisticalProcessing::StandardizedAnomaly},
         {"summation", TypeOfStatisticalProcessing::Summation},
-        {"return", TypeOfStatisticalProcessing::Return},
+        {"return-period", TypeOfStatisticalProcessing::ReturnPeriod},
         {"median", TypeOfStatisticalProcessing::Median},
         {"severity", TypeOfStatisticalProcessing::Severity},
         {"mode", TypeOfStatisticalProcessing::Mode},
-        {"index", TypeOfStatisticalProcessing::Index},
+        {"index-processing", TypeOfStatisticalProcessing::IndexProcessing},
     };
 
     if (auto tos
@@ -421,30 +415,30 @@ TypeOfStatisticalProcessing ReadSpec<TypeOfStatisticalProcessing>::read(std::int
             return TypeOfStatisticalProcessing::Minimum;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Difference):
             return TypeOfStatisticalProcessing::Difference;
-        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Root):
-            return TypeOfStatisticalProcessing::Root;
-        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Standard):
-            return TypeOfStatisticalProcessing::Standard;
+        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::RootMeanSquare):
+            return TypeOfStatisticalProcessing::RootMeanSquare;
+        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::StandardDeviation):
+            return TypeOfStatisticalProcessing::StandardDeviation;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Covariance):
             return TypeOfStatisticalProcessing::Covariance;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::InverseDifference):
             return TypeOfStatisticalProcessing::InverseDifference;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Ratio):
             return TypeOfStatisticalProcessing::Ratio;
-        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Standardized):
-            return TypeOfStatisticalProcessing::Standardized;
+        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::StandardizedAnomaly):
+            return TypeOfStatisticalProcessing::StandardizedAnomaly;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Summation):
             return TypeOfStatisticalProcessing::Summation;
-        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Return):
-            return TypeOfStatisticalProcessing::Return;
+        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::ReturnPeriod):
+            return TypeOfStatisticalProcessing::ReturnPeriod;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Median):
             return TypeOfStatisticalProcessing::Median;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Severity):
             return TypeOfStatisticalProcessing::Severity;
         case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Mode):
             return TypeOfStatisticalProcessing::Mode;
-        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::Index):
-            return TypeOfStatisticalProcessing::Index;
+        case static_cast<std::int64_t>(TypeOfStatisticalProcessing::IndexProcessing):
+            return TypeOfStatisticalProcessing::IndexProcessing;
         default:
             throw DataModellingException(
                 std::string(

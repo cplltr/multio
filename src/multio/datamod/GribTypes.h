@@ -138,18 +138,18 @@ enum class TypeOfStatisticalProcessing : std::size_t
     Maximum = 2,
     Minimum = 3,
     Difference = 4,
-    Root = 5,
-    Standard = 6,
+    RootMeanSquare = 5,
+    StandardDeviation = 6,
     Covariance = 7,
     InverseDifference = 8,
     Ratio = 9,
-    Standardized = 10,
+    StandardizedAnomaly = 10,
     Summation = 11,
-    Return = 12,
+    ReturnPeriod = 12,
     Median = 13,
     Severity = 100,
     Mode = 101,
-    Index = 102,
+    IndexProcessing = 102,
 };
 
 std::ostream& operator<<(std::ostream&, const TypeOfStatisticalProcessing&);

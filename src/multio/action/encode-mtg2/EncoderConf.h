@@ -13,6 +13,7 @@
 #include "eckit/config/LocalConfiguration.h"
 #include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/action/encode-mtg2/generated/InferPDT.h"
+#include "multio/action/encode-mtg2/sections/SectionTypes.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/GribTypes.h"
@@ -65,11 +66,11 @@ enum class EncoderOriginDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderOriginDef;
-MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                                 //
-                           "origin-configurator",                                                            //
-                                                                                                             //
-                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),       //
-                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.withDefault(97))  //
+MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                               //
+                           "origin-configurator",                                                          //
+                                                                                                           //
+                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),     //
+                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.tagOptional())  //
 };  // namespace datamod
 
 
@@ -250,12 +251,14 @@ enum class EncoderTimeRangeDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderTimeRangeDef;
+using action::sections::TimeRangeType;
 MULTIO_KEY_SET_DESCRIPTION(
-    EncoderTimeRangeDef,                                                                                              //
-    "time-statistics-configurator",                                                                                   //
-                                                                                                                      //
-    KeyDef<EncoderTimeRangeDef::Type, std::string>{"type"},                                                           //
-    KeyDef<EncoderTimeRangeDef::TypeOfStatisticalProcessing, std::string>{"type-of-statistical-processing"},          //
+    EncoderTimeRangeDef,                                       //
+    "time-statistics-configurator",                            //
+                                                               //
+    KeyDef<EncoderTimeRangeDef::Type, TimeRangeType>{"type"},  //
+    KeyDef<EncoderTimeRangeDef::TypeOfStatisticalProcessing, TypeOfStatisticalProcessing>{
+        "type-of-statistical-processing"},                                                                            //
     KeyDef<EncoderTimeRangeDef::OverallLengthOfTimeRange, std::string>{"overall-length-of-timerange"}.tagOptional())  //
 };  // namespace datamod
 

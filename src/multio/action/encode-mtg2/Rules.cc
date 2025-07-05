@@ -1,10 +1,10 @@
 #include "multio/action/encode-mtg2/Rules.h"
-#include <type_traits>
 #include "multio/action/encode-mtg2/EncoderConf.h"
 #include "multio/action/encode-mtg2/generated/InferPDT.h"
 #include "multio/action/encode-mtg2/rules/Matcher.h"
 #include "multio/action/encode-mtg2/rules/Rule.h"
 #include "multio/action/encode-mtg2/rules/Setter.h"
+#include "multio/action/encode-mtg2/sections/SectionTypes.h"
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/GribTypes.h"
 #include "multio/datamod/MarsMiscGeo.h"
@@ -13,6 +13,7 @@
 namespace multio::action::rules {
 using namespace rules;
 using namespace datamod;
+using namespace sections;
 
 //-----------------------------------------------------------------------------
 // Matchers
@@ -96,7 +97,7 @@ auto pointInTime() {
                       {TimeExtent::PointInTime}),
                   setKey<EncoderProductDef::PointInTime, EncoderSectionsDef::Product>());
 }
-auto timeRange(const std::string& type, const std::string& typeOfStatisticalProcessing) {
+auto timeRange(TimeRangeType type, TypeOfStatisticalProcessing typeOfStatisticalProcessing) {
     return setAll(
         setKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>({TimeExtent::TimeRange}),
         setKey<EncoderTimeRangeDef::Type, EncoderSectionsDef::Product, EncoderProductDef::TimeRange>({type}),
@@ -248,176 +249,194 @@ auto paramSFCRules() {
         rule(all(matchLevType(LevType::SFC),                        //
                  matchParams(                                       //
                      59, 78, 79, 136, 137, 164, 206, paramRange(162059, 162063), 162071, 162072, 162093, 228044, 228050,
-                     228052, 228088, 228089, 228090, 228164, 260132)),                              //
-             pointInTime(), typeOfLevel(TypeOfLevel::EntireAtmosphere)),                            //
-        rule(all(matchLevType(LevType::SFC), matchParams(228007, 228011)),                          //
-             pointInTime(), typeOfLevel(TypeOfLevel::EntireLake)),                                  //
-        rule(all(matchLevType(LevType::SFC), matchParams(121)),                                     //
-             timeRange("fixed-timerange", "max"), overallLengthOfTimeRange("6h"),                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                      //
-        rule(all(matchLevType(LevType::SFC), matchParams(122)),                                     //
-             timeRange("fixed-timerange", "min"), overallLengthOfTimeRange("6h"),                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                      //
-        rule(all(matchLevType(LevType::SFC), matchParams(201)),                                     //
-             timeRange("since-last-post-processing-step", "max"),                                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                      //
-        rule(all(matchLevType(LevType::SFC), matchParams(202)),                                     //
-             timeRange("since-last-post-processing-step", "min"),                                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                      //
-        rule(all(matchLevType(LevType::SFC), matchParams(123)),                                     //
-             timeRange("fixed-timerange", "max"), overallLengthOfTimeRange("6h"),                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                     //
-        rule(all(matchLevType(LevType::SFC), matchParams(228028)),                                  //
-             timeRange("fixed-timerange", "max"), overallLengthOfTimeRange("3h"),                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                     //
-        rule(all(matchLevType(LevType::SFC), matchParams(49)),                                      //
-             timeRange("since-last-post-processing-step", "max"),                                   //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                     //
-        rule(all(matchLevType(LevType::SFC), matchParams(235087, 235088, 235136, 235137, 235288)),  //
-             timeRange("since-last-post-processing-step", "average"),                               //
-             typeOfLevel(TypeOfLevel::EntireAtmosphere)),                                           //
-        rule(all(matchLevType(LevType::SFC), matchParams(228005, 235165, 235166)),                  //
-             timeRange("since-last-post-processing-step", "average"),
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                     //
-        rule(all(matchLevType(LevType::SFC), matchParams(235151)),                                  //
-             timeRange("since-last-post-processing-step", "average"),                               //
-             typeOfLevel(TypeOfLevel::MeanSea)),                                                    //
-        rule(all(matchLevType(LevType::SFC), matchParams(235039, 235040, 235049, 235050, 235053)),  //
-             timeRange("since-last-post-processing-step", "average"),                               //
-             typeOfLevel(TypeOfLevel::NominalTop)),                                                 //
-        rule(all(matchLevType(LevType::SFC),                                                        //
+                     228052, 228088, 228089, 228090, 228164, 260132)),      //
+             pointInTime(), typeOfLevel(TypeOfLevel::EntireAtmosphere)),    //
+        rule(all(matchLevType(LevType::SFC), matchParams(228007, 228011)),  //
+             pointInTime(), typeOfLevel(TypeOfLevel::EntireLake)),          //
+        rule(all(matchLevType(LevType::SFC), matchParams(121)),             //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
+             overallLengthOfTimeRange("6h"),                     //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),   //
+        rule(all(matchLevType(LevType::SFC), matchParams(122)),  //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Minimum),
+             overallLengthOfTimeRange("6h"),                                                               //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(201)),                                            //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(202)),                                            //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(123)),                                            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
+             overallLengthOfTimeRange("6h"),                        //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),     //
+        rule(all(matchLevType(LevType::SFC), matchParams(228028)),  //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
+             overallLengthOfTimeRange("3h"),                                                               //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+        rule(all(matchLevType(LevType::SFC), matchParams(49)),                                             //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+        rule(all(matchLevType(LevType::SFC), matchParams(235087, 235088, 235136, 235137, 235288)),         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::EntireAtmosphere)),                                                  //
+        rule(all(matchLevType(LevType::SFC), matchParams(228005, 235165, 235166)),                         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+        rule(all(matchLevType(LevType::SFC), matchParams(235151)),                                         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::MeanSea)),                                                           //
+        rule(all(matchLevType(LevType::SFC), matchParams(235039, 235040, 235049, 235050, 235053)),         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::NominalTop)),                                                        //
+        rule(all(matchLevType(LevType::SFC),                                                               //
                  matchParams(235020, 235021, 235031, paramRange(235033, 235038), paramRange(235041, 235043), 235051,
-                             235052, 235055, 235078, 235079, 235134)),                             //
-             timeRange("since-last-post-processing-step", "average"),                              //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC), matchParams(129172)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::HeightAboveGround)),                                         //
-        rule(all(matchLevType(LevType::SFC), matchParams(165, 166, 207, 228029, 228131, 228132)),  //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                    //
-        rule(all(matchLevType(LevType::SFC), matchParams(167, 168, 174096, 228037, 260242)),       //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                     //
-        rule(all(matchLevType(LevType::SFC), matchParams(140245, 140249, 140233)),                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::HeightAboveSeaAt10m)),                                       //
-        rule(all(matchLevType(LevType::SFC), matchParams(3075)),                                   //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::HighCloudLayer)),                                            //
-        rule(all(matchLevType(LevType::SFC), matchParams(3074)),                                   //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::MediumCloudLayer)),                                          //
-        rule(all(matchLevType(LevType::SFC), matchParams(3073)),                                   //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::LowCloudLayer)),                                             //
-        rule(all(matchLevType(LevType::SFC), matchParams(228014)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::IceLayerOnWater)),                                           //
-        rule(all(matchLevType(LevType::SFC), matchParams(228013)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::IceTopOnWater)),                                             //
-        rule(all(matchLevType(LevType::SFC), matchParams(228010)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::LakeBottom)),                                                //
-        rule(all(matchLevType(LevType::SFC), matchParams(151)),                                    //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::MeanSea)),                                                   //
-        rule(all(matchLevType(LevType::SFC), matchParams(262118)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::DepthBelowSeaLayer)),                                        //
-        rule(all(matchLevType(LevType::SFC), matchParams(228231, 228232, 228233, 228234)),         //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::MixedLayerParcel)),                                          //
-        rule(all(matchLevType(LevType::SFC), matchParams(228008, 228009)),                         //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::MixingLayer)),                                               //
-        rule(all(matchLevType(LevType::SFC), matchParams(228235, 228236, 228237)),                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::MostUnstableParcel)),                                        //
-        rule(all(matchLevType(LevType::SFC), matchParams(178, 179, 208, 209, 212)),                //
-             timeRange("since-beginning-of-forecast", "accumul"),                                  //
-             typeOfLevel(TypeOfLevel::NominalTop)),                                                //
-        rule(all(matchLevType(LevType::SFC), matchParams(235039, 235040)),                         //
-             timeRange("since-last-post-processing-step", "average"),                              //
-             typeOfLevel(TypeOfLevel::NominalTop)),                                                //
-        rule(all(matchLevType(LevType::SFC), matchParams(228045)),                                 //
-             pointInTime(),                                                                        //
-             typeOfLevel(TypeOfLevel::Tropopause)),                                                //
-        rule(all(matchLevType(LevType::SFC),                                                       //
+                             235052, 235055, 235078, 235079, 235134)),                                       //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),    //
+             typeOfLevel(TypeOfLevel::Surface)),                                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(129172)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::HeightAboveGround)),                                                   //
+        rule(all(matchLevType(LevType::SFC), matchParams(165, 166, 207, 228029, 228131, 228132)),            //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                              //
+        rule(all(matchLevType(LevType::SFC), matchParams(167, 168, 174096, 228037, 260242)),                 //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                               //
+        rule(all(matchLevType(LevType::SFC), matchParams(140245, 140249, 140233)),                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::HeightAboveSeaAt10m)),                                                 //
+        rule(all(matchLevType(LevType::SFC), matchParams(3075)),                                             //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::HighCloudLayer)),                                                      //
+        rule(all(matchLevType(LevType::SFC), matchParams(3074)),                                             //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::MediumCloudLayer)),                                                    //
+        rule(all(matchLevType(LevType::SFC), matchParams(3073)),                                             //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::LowCloudLayer)),                                                       //
+        rule(all(matchLevType(LevType::SFC), matchParams(228014)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::IceLayerOnWater)),                                                     //
+        rule(all(matchLevType(LevType::SFC), matchParams(228013)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::IceTopOnWater)),                                                       //
+        rule(all(matchLevType(LevType::SFC), matchParams(228010)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::LakeBottom)),                                                          //
+        rule(all(matchLevType(LevType::SFC), matchParams(151)),                                              //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::MeanSea)),                                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(262118)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::DepthBelowSeaLayer)),                                                  //
+        rule(all(matchLevType(LevType::SFC), matchParams(228231, 228232, 228233, 228234)),                   //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::MixedLayerParcel)),                                                    //
+        rule(all(matchLevType(LevType::SFC), matchParams(228008, 228009)),                                   //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::MixingLayer)),                                                         //
+        rule(all(matchLevType(LevType::SFC), matchParams(228235, 228236, 228237)),                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::MostUnstableParcel)),                                                  //
+        rule(all(matchLevType(LevType::SFC), matchParams(178, 179, 208, 209, 212)),                          //
+             timeRange(TimeRangeType::SinceBeginningOfForecast, TypeOfStatisticalProcessing::Accumulation),  //
+             typeOfLevel(TypeOfLevel::NominalTop)),                                                          //
+        rule(all(matchLevType(LevType::SFC), matchParams(235039, 235040)),                                   //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),    //
+             typeOfLevel(TypeOfLevel::NominalTop)),                                                          //
+        rule(all(matchLevType(LevType::SFC), matchParams(228045)),                                           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::Tropopause)),                                                          //
+        rule(all(matchLevType(LevType::SFC),                                                                 //
                  matchParams(228080, 228081, 228082, paramRange(233032, 233035), 235062, 235063, 235064),
-                 matchChemical()),                                               //
-             timeRange("since-beginning-of-forecast", "accumul"),                //
-             chemical(),                                                         //
-             typeOfLevel(TypeOfLevel::Surface),                                  //
-             tablesConfig("custom"), localTablesVersion(0), tablesVersion(30)),  //
-        rule(all(matchLevType(LevType::SFC),                                     //
-                 matchParams(                                                    //
+                 matchChemical()),                                                                           //
+             timeRange(TimeRangeType::SinceBeginningOfForecast, TypeOfStatisticalProcessing::Accumulation),  //
+             chemical(),                                                                                     //
+             typeOfLevel(TypeOfLevel::Surface),                                                              //
+             tablesConfig("custom"), localTablesVersion(0), tablesVersion(30)),                              //
+        rule(all(matchLevType(LevType::SFC),                                                                 //
+                 matchParams(                                                                                //
                      8, 9, 20, 44, 45, 47, 50, 57, 58, paramRange(142, 147), 169, 175, 176, 177, 180, 181, 182, 189,
                      195, 196, 197, 205, 210, 211, 213, 228, 239, 240, 3062, 3099, paramRange(162100, 162113),
                      paramRange(222001, 222256), 228021, 228022, 228129, 228130, 228143, 228144, 228216, 228228, 228251,
                      231001, 231002, 231003, 231005, 231010, 231012, 231057, 231058, paramRange(233000, 233031),
-                     260259)),                                                                     //
-             timeRange("since-beginning-of-forecast", "accumul"), overallLengthOfTimeRange("1h"),  //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228051, 228053)),                                                     //
-             timeRange("fixed-timerange", "average"), overallLengthOfTimeRange("1h"),              //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228057, 228059)),                                                     //
-             timeRange("fixed-timerange", "average"), overallLengthOfTimeRange("3h"),              //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228058, 228060)),                                                     //
-             timeRange("fixed-timerange", "average"), overallLengthOfTimeRange("6h"),              //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228026, 228222)),                                                     //
-             timeRange("fixed-timerange", "max"), overallLengthOfTimeRange("3h"),                  //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228224, 228035, 228036)),                                             //
-             timeRange("fixed-timerange", "max"), overallLengthOfTimeRange("6h"),                  //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228027, 228223)),                                                     //
-             timeRange("fixed-timerange", "min"), overallLengthOfTimeRange("3h"),                  //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(228225)),                                                             //
-             timeRange("fixed-timerange", "min"), overallLengthOfTimeRange("6h"),                  //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(paramRange(235033, 235038), 235189)),                                 //
-             timeRange("since-last-post-processing-step", "average"),                              //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260320)),                                                             //
-             timeRange("fixed-timerange", "mode"), overallLengthOfTimeRange("1h"),                 //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260321)),                                                             //
-             timeRange("fixed-timerange", "mode"), overallLengthOfTimeRange("3h"),                 //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260339)),                                                             //
-             timeRange("fixed-timerange", "mode"), overallLengthOfTimeRange("6h"),                 //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260318)),                                                             //
-             timeRange("fixed-timerange", "severity"), overallLengthOfTimeRange("1h"),             //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260319)),                                                             //
-             timeRange("fixed-timerange", "severity"), overallLengthOfTimeRange("3h"),             //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(260338)),                                                             //
-             timeRange("fixed-timerange", "severity"), overallLengthOfTimeRange("6h"),             //
-             typeOfLevel(TypeOfLevel::Surface)),                                                   //
-        rule(all(matchLevType(LevType::SFC),                                                       //
-                 matchParams(                                                                      //
+                     260259)),  //
+             timeRange(TimeRangeType::SinceBeginningOfForecast, TypeOfStatisticalProcessing::Accumulation),
+             overallLengthOfTimeRange("1h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228051, 228053)),    //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Average),
+             overallLengthOfTimeRange("1h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228057, 228059)),    //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Average),
+             overallLengthOfTimeRange("3h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228058, 228060)),    //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Average),
+             overallLengthOfTimeRange("6h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228026, 228222)),    //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
+             overallLengthOfTimeRange("3h"),            //
+             typeOfLevel(TypeOfLevel::Surface)),        //
+        rule(all(matchLevType(LevType::SFC),            //
+                 matchParams(228224, 228035, 228036)),  //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
+             overallLengthOfTimeRange("6h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228027, 228223)),    //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Minimum),
+             overallLengthOfTimeRange("3h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(228225)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Minimum),
+             overallLengthOfTimeRange("6h"),                                                               //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(paramRange(235033, 235038), 235189)),                                         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(260320)),                                                                     //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Mode),
+             overallLengthOfTimeRange("1h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(260321)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Mode),
+             overallLengthOfTimeRange("3h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(260339)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Mode),
+             overallLengthOfTimeRange("6h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(260318)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Severity),
+             overallLengthOfTimeRange("1h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(260319)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Severity),
+             overallLengthOfTimeRange("3h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(260338)),            //
+             timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Severity),
+             overallLengthOfTimeRange("6h"),      //
+             typeOfLevel(TypeOfLevel::Surface)),  //
+        rule(all(matchLevType(LevType::SFC),      //
+                 matchParams(                     //
                      paramRange(15, 18), paramRange(26, 32), 33, paramRange(34, 43), paramRange(66, 67), 74, 129, 134,
                      139, 141, 148, 159, paramRange(160, 163), 170, paramRange(172, 174), paramRange(186, 188), 198,
                      paramRange(229, 232), paramRange(234, 236), 238, paramRange(243, 245), 3020, 3067, 160198, 200199,
@@ -445,36 +464,36 @@ auto paramSFCRules() {
                  matchParams(paramRange(140114, 140120))),                              //
              pointInTime(),                                                             //
              periodRange(),
-             typeOfLevel(TypeOfLevel::Surface)),                   //
-        rule(all(matchLevType(LevType::SFC),                       //
-                 matchParams(paramRange(228226, 237055))),         //
-             timeRange("since-last-post-processing-step", "max"),  //
-             typeOfLevel(TypeOfLevel::Surface)),                   //
-        rule(all(matchLevType(LevType::SFC),                       //
-                 matchParams(paramRange(228227, 238055))),         //
-             timeRange("since-last-post-processing-step", "min"),  //
-             typeOfLevel(TypeOfLevel::Surface)),                   //
-        rule(all(matchLevType(LevType::SFC),                       //
-                 matchParams(140251)),                             //
-             pointInTime(),                                        //
-             dirFreq(),                                            //
-             typeOfLevel(TypeOfLevel::Surface)),                   //
-        rule(all(matchLevType(LevType::SFC),                       //
-                 matchParams(262104)),                             //
-             pointInTime(),                                        //
-             typeOfLevel(TypeOfLevel::Isothermal))                 //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(paramRange(228226, 237055))),                                                 //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(paramRange(228227, 238055))),                                                 //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(140251)),                                                                     //
+             pointInTime(),                                                                                //
+             dirFreq(),                                                                                    //
+             typeOfLevel(TypeOfLevel::Surface)),                                                           //
+        rule(all(matchLevType(LevType::SFC),                                                               //
+                 matchParams(262104)),                                                                     //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::Isothermal))                                                         //
     );
 }
 
 
 auto paramHLRules() {
-    return exclusiveRuleList(                                                                          //
-        rule(all(matchLevType(LevType::HL), matchParams(10, 54, 130, 131, 132, 157, 246, 247, 3031)),  //
-             pointInTime(),                                                                            //
-             typeOfLevel(TypeOfLevel::HeightAboveGround)),                                             //
-        rule(all(matchLevType(LevType::HL), matchParams(235131, 235132)),                              //
-             timeRange("since-last-post-processing-step", "average"),                                  //
-             typeOfLevel(TypeOfLevel::HeightAboveGround))                                              //
+    return exclusiveRuleList(                                                                              //
+        rule(all(matchLevType(LevType::HL), matchParams(10, 54, 130, 131, 132, 157, 246, 247, 3031)),      //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::HeightAboveGround)),                                                 //
+        rule(all(matchLevType(LevType::HL), matchParams(235131, 235132)),                                  //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::HeightAboveGround))                                                  //
     );
 }
 
@@ -484,13 +503,13 @@ auto paramHLRules() {
 //-----------------------------------------------------------------------------
 
 auto paramMLRules() {
-    return exclusiveRuleList(                                                                       //
-        rule(all(matchLevType(LevType::ML), matchParams(75, 76, 133, 203, 246, 247, 248, 260290)),  //
-             pointInTime(),                                                                         //
-             typeOfLevel(TypeOfLevel::Hybrid)),                                                     //
-        rule(all(matchLevType(LevType::ML), matchParams(paramRange(162100, 162113))),               //
-             timeRange("since-beginning-of-forecast", "accumul"),                                   //
-             typeOfLevel(TypeOfLevel::Hybrid))                                                      //
+    return exclusiveRuleList(                                                                                //
+        rule(all(matchLevType(LevType::ML), matchParams(75, 76, 133, 203, 246, 247, 248, 260290)),           //
+             pointInTime(),                                                                                  //
+             typeOfLevel(TypeOfLevel::Hybrid)),                                                              //
+        rule(all(matchLevType(LevType::ML), matchParams(paramRange(162100, 162113))),                        //
+             timeRange(TimeRangeType::SinceBeginningOfForecast, TypeOfStatisticalProcessing::Accumulation),  //
+             typeOfLevel(TypeOfLevel::Hybrid))                                                               //
     );
 }
 
@@ -525,11 +544,11 @@ auto plLevelRules(MkTail&& mkTail) {
 
 auto paramPLRules() {
     return plLevelRules([]() {
-        return exclusiveRuleList(                                                                 //
-            rule(matchParams(60, 75, 76, paramRange(129, 135), 203, 246, 247, 248, 157, 260290),  //
-                 pointInTime()),                                                                  //
-            rule(matchParams(235100, paramRange(235129, 235133), 235135, 235157, 235246),         //
-                 timeRange("since-last-post-processing-step", "average"))                         //
+        return exclusiveRuleList(                                                                              //
+            rule(matchParams(60, 75, 76, paramRange(129, 135), 203, 246, 247, 248, 157, 260290),               //
+                 pointInTime()),                                                                               //
+            rule(matchParams(235100, paramRange(235129, 235133), 235135, 235157, 235246),                      //
+                 timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average))  //
         );
     });
 }
@@ -549,22 +568,22 @@ auto paramPLRulesSH() {
 //-----------------------------------------------------------------------------
 
 auto paramPTRules() {
-    return exclusiveRuleList(                                                                        //
-        rule(all(matchLevType(LevType::PT), matchParams(53, 54, 60, 131, 132, 133, 138, 155, 203)),  //
-             pointInTime(),                                                                          //
-             typeOfLevel(TypeOfLevel::Theta)),                                                       //
-        rule(all(matchLevType(LevType::PT), matchParams(235203)),                                    //
-             timeRange("since-last-post-processing-step", "average"),                                //
-             typeOfLevel(TypeOfLevel::Theta)),                                                       //
-        rule(all(matchLevType(LevType::PT), matchParams(237203)),                                    //
-             timeRange("since-last-post-processing-step", "max"),                                    //
-             typeOfLevel(TypeOfLevel::Theta)),                                                       //
-        rule(all(matchLevType(LevType::PT), matchParams(238203)),                                    //
-             timeRange("since-last-post-processing-step", "min"),                                    //
-             typeOfLevel(TypeOfLevel::Theta)),                                                       //
-        rule(all(matchLevType(LevType::PT), matchParams(239203)),                                    //
-             timeRange("since-last-post-processing-step", "stddev"),                                 //
-             typeOfLevel(TypeOfLevel::Theta))                                                        //
+    return exclusiveRuleList(                                                                                        //
+        rule(all(matchLevType(LevType::PT), matchParams(53, 54, 60, 131, 132, 133, 138, 155, 203)),                  //
+             pointInTime(),                                                                                          //
+             typeOfLevel(TypeOfLevel::Theta)),                                                                       //
+        rule(all(matchLevType(LevType::PT), matchParams(235203)),                                                    //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),            //
+             typeOfLevel(TypeOfLevel::Theta)),                                                                       //
+        rule(all(matchLevType(LevType::PT), matchParams(237203)),                                                    //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),            //
+             typeOfLevel(TypeOfLevel::Theta)),                                                                       //
+        rule(all(matchLevType(LevType::PT), matchParams(238203)),                                                    //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),            //
+             typeOfLevel(TypeOfLevel::Theta)),                                                                       //
+        rule(all(matchLevType(LevType::PT), matchParams(239203)),                                                    //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::StandardDeviation),  //
+             typeOfLevel(TypeOfLevel::Theta))                                                                        //
     );
 }
 
@@ -602,25 +621,25 @@ auto paramPVRulesSH() {
 //-----------------------------------------------------------------------------
 
 auto paramSOLRules() {
-    return exclusiveRuleList(                                                    //
-        rule(all(matchLevType(LevType::SOL), matchParams(262000, 262024)),       //
-             pointInTime(),                                                      //
-             typeOfLevel(TypeOfLevel::SeaIceLayer)),                             //
-        rule(all(matchLevType(LevType::SOL), matchParams(33, 74, 238, 228038)),  //
-             pointInTime(),                                                      //
-             typeOfLevel(TypeOfLevel::SnowLayer)),                               //
-        rule(all(matchLevType(LevType::SOL), matchParams(228141)),               //
-             pointInTime(),                                                      //
-             typeOfLevel(TypeOfLevel::Snow)),                                    //
-        rule(all(matchLevType(LevType::SOL), matchParams(260360, 260199, 183)),  //
-             pointInTime(),                                                      //
-             typeOfLevel(TypeOfLevel::SoilLayer)),                               //
-        rule(all(matchLevType(LevType::SOL), matchParams(235077)),               //
-             timeRange("since-last-post-processing-step", "average"),            //
-             typeOfLevel(TypeOfLevel::SoilLayer)),                               //
-        rule(all(matchLevType(LevType::SOL), matchParams(235078)),               //
-             timeRange("since-last-post-processing-step", "average"),            //
-             typeOfLevel(TypeOfLevel::Snow))                                     //
+    return exclusiveRuleList(                                                                              //
+        rule(all(matchLevType(LevType::SOL), matchParams(262000, 262024)),                                 //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::SeaIceLayer)),                                                       //
+        rule(all(matchLevType(LevType::SOL), matchParams(33, 74, 238, 228038)),                            //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::SnowLayer)),                                                         //
+        rule(all(matchLevType(LevType::SOL), matchParams(228141)),                                         //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::Snow)),                                                              //
+        rule(all(matchLevType(LevType::SOL), matchParams(260360, 260199, 183)),                            //
+             pointInTime(),                                                                                //
+             typeOfLevel(TypeOfLevel::SoilLayer)),                                                         //
+        rule(all(matchLevType(LevType::SOL), matchParams(235077)),                                         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::SoilLayer)),                                                         //
+        rule(all(matchLevType(LevType::SOL), matchParams(235078)),                                         //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
+             typeOfLevel(TypeOfLevel::Snow))                                                               //
     );
 }
 
