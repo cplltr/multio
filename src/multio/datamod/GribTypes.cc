@@ -340,7 +340,7 @@ std::string WriteSpec<TypeOfStatisticalProcessing>::write(TypeOfStatisticalProce
         case TypeOfStatisticalProcessing::RootMeanSquare:
             return "root-mean-square";
         case TypeOfStatisticalProcessing::StandardDeviation:
-            return "standard-deviation";
+            return "stddev";  // Currently used in MULTIOM...
         case TypeOfStatisticalProcessing::Covariance:
             return "covariance";
         case TypeOfStatisticalProcessing::InverseDifference:
@@ -378,7 +378,7 @@ TypeOfStatisticalProcessing ReadSpec<TypeOfStatisticalProcessing>::read(const st
         {"min", TypeOfStatisticalProcessing::Minimum},
         {"difference", TypeOfStatisticalProcessing::Difference},
         {"root-mean-square", TypeOfStatisticalProcessing::RootMeanSquare},
-        {"standard-deviation", TypeOfStatisticalProcessing::StandardDeviation},
+        {"stddev", TypeOfStatisticalProcessing::StandardDeviation},
         {"covariance", TypeOfStatisticalProcessing::Covariance},
         {"inverse-difference", TypeOfStatisticalProcessing::InverseDifference},  // TODO rename? stepType is sdiff
         {"ratio", TypeOfStatisticalProcessing::Ratio},

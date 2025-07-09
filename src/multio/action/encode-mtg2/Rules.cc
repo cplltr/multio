@@ -208,9 +208,13 @@ auto gridRuleSH() {
 
 auto localSectionRules() {
     return exclusiveRuleList(  //
-        rule(all(Missing<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1)),
+        rule(all(Missing<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}, Missing<MarsKeys::METHOD>{}),
+             localUse(1)),
+        rule(all(Missing<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}, Has<MarsKeys::METHOD>{}),
+             localUse(15)),
         rule(all(Has<MarsKeys::ANOFFSET>{}, NoneOf<MarsKeys::CLASS>{{"d1"}}), localUse(36)),
-        rule(all(Missing<MarsKeys::ANOFFSET>{}, OneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1001)));
+        rule(all(Missing<MarsKeys::ANOFFSET>{}, OneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1001)),
+        rule(all(Has<MarsKeys::ANOFFSET>{}, OneOf<MarsKeys::CLASS>{{"d1"}}), localUse(1036)));
 }
 
 auto processTypesRules() {
@@ -301,7 +305,7 @@ auto paramSFCRules() {
         rule(all(matchLevType(LevType::SFC), matchParams(129172)),                                           //
              pointInTime(),                                                                                  //
              typeOfLevel(TypeOfLevel::HeightAboveGround)),                                                   //
-        rule(all(matchLevType(LevType::SFC), matchParams(165, 166, 207, 228029, 228131, 228132)),            //
+        rule(all(matchLevType(LevType::SFC), matchParams(165, 166, 207, 228029, 228131, 228132, 260260)),    //
              pointInTime(),                                                                                  //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                              //
         rule(all(matchLevType(LevType::SFC), matchParams(167, 168, 174096, 228037, 260242)),                 //
