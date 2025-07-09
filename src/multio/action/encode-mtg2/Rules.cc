@@ -268,10 +268,10 @@ auto paramSFCRules() {
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Minimum),
              overallLengthOfTimeRange("6h"),                                                               //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),                              //
-        rule(all(matchLevType(LevType::SFC), matchParams(201)),                                            //
+        rule(all(matchLevType(LevType::SFC), matchParams(201, 237167)),                                    //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2), fixedLevel(10)),              //
-        rule(all(matchLevType(LevType::SFC), matchParams(202)),                                            //
+        rule(all(matchLevType(LevType::SFC), matchParams(202, 238167)),                                    //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),                              //
         rule(all(matchLevType(LevType::SFC), matchParams(123)),                                            //
@@ -282,7 +282,7 @@ auto paramSFCRules() {
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
              overallLengthOfTimeRange("3h"),                                                               //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                            //
-        rule(all(matchLevType(LevType::SFC), matchParams(49)),                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(49, 237207, 237318)),                             //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
              typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                            //
         rule(all(matchLevType(LevType::SFC), matchParams(235087, 235088, 235136, 235137, 235288)),         //
@@ -301,6 +301,12 @@ auto paramSFCRules() {
                  matchParams(235020, 235021, 235031, paramRange(235033, 235038), paramRange(235041, 235043), 235051,
                              235052, 235055, 235078, 235079, 235134)),                                       //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),    //
+             typeOfLevel(TypeOfLevel::Surface)),                                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(260683)),                                           //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Mode),       //
+             typeOfLevel(TypeOfLevel::Surface)),                                                             //
+        rule(all(matchLevType(LevType::SFC), matchParams(260682)),                                           //
+             timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Severity),   //
              typeOfLevel(TypeOfLevel::Surface)),                                                             //
         rule(all(matchLevType(LevType::SFC), matchParams(129172)),                                           //
              pointInTime(),                                                                                  //
@@ -409,7 +415,7 @@ auto paramSFCRules() {
              overallLengthOfTimeRange("6h"),                                                               //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
-                 matchParams(paramRange(235033, 235038), 235189)),                                         //
+                 matchParams(paramRange(235033, 235038), 235189, 235326)),                                 //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
@@ -473,11 +479,11 @@ auto paramSFCRules() {
              periodRange(),
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
-                 matchParams(paramRange(228226, 237055))),                                                 //
+                 matchParams(paramRange(228226, 237013, 237055, 237117, 237321))),                         //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
-                 matchParams(paramRange(228227, 238055))),                                                 //
+                 matchParams(paramRange(228227, 238055), 238013)),                                         //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
