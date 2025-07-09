@@ -157,6 +157,7 @@ list( APPEND multio_datamod_srcs
     datamod/MarsTypes.h
     datamod/GribTypes.cc
     datamod/GribTypes.h
+    datamod/GribKeys.h
 )
 
 list( APPEND multio_server_srcs

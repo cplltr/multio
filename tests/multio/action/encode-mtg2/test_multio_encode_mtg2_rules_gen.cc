@@ -84,7 +84,7 @@ CASE("Test rules gen matchers") {
             rule(OneOf<MarsKeys::PARAM>{{1, 3, 4}},
                  setAll(setKey<PDTCatDef::TimeExtent, EncoderSectionsDef::Product, EncoderProductDef::PDTCat>(
                             {TimeExtent::PointInTime}),  //
-                        setKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>(
+                        setKey<LevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>(
                             {TypeOfLevel::HeightAboveGround})  //
                         ))),
 
@@ -110,7 +110,7 @@ CASE("Test rules gen matchers") {
         EncoderSections sections;
 
         EXPECT(ruleSet(mars, sections));
-        EXPECT((keyPath<EncoderSectionsDef::Product, EncoderProductDef::Level, EncoderLevelDef::Type>(sections).get())
+        EXPECT((keyPath<EncoderSectionsDef::Product, EncoderProductDef::Level, LevelDef::Type>(sections).get())
                == TypeOfLevel::HeightAboveGround);
         EXPECT_EQUAL(
             (keyPath<EncoderSectionsDef::Product, EncoderProductDef::PDTCat, PDTCatDef::TimeExtent>(sections).get()),

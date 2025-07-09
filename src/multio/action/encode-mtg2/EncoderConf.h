@@ -13,9 +13,11 @@
 #include "eckit/config/LocalConfiguration.h"
 #include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/action/encode-mtg2/generated/InferPDT.h"
+#include "multio/action/encode-mtg2/sections/Level.h"
 #include "multio/action/encode-mtg2/sections/SectionTypes.h"
 #include "multio/datamod/ContainerInterop.h"
 #include "multio/datamod/DataModelling.h"
+#include "multio/datamod/GribKeys.h"
 #include "multio/datamod/GribTypes.h"
 
 #include <memory>
@@ -296,22 +298,6 @@ MULTIO_KEY_SET_DESCRIPTION(EncoderModelDef,                                     
                            KeyDef<EncoderModelDef::Type, std::string>{"type"}.withDefault("default"))  //
 };  // namespace datamod
 
-// Level config
-namespace action {
-enum class EncoderLevelDef : std::uint64_t
-{
-    Type,
-};
-}
-
-namespace datamod {
-using action::EncoderLevelDef;
-MULTIO_KEY_SET_DESCRIPTION(EncoderLevelDef,                                              //
-                           "level-configurator",                                         //
-                                                                                         //
-                           KeyDef<EncoderLevelDef::Type, datamod::TypeOfLevel>{"type"})  //
-};  // namespace datamod
-
 // Random patterns config
 namespace action {
 enum class EncoderRandomPatternsDef : std::uint64_t
@@ -420,6 +406,7 @@ enum class EncoderProductDef : std::uint64_t
 namespace datamod {
 using action::EncoderProductDef;
 using action::rules::PDTCatDef;
+using multio::action::sections::LevelDef;
 MULTIO_KEY_SET_DESCRIPTION(EncoderProductDef,             //
                            "product-definition-section",  //
                                                           //
@@ -431,7 +418,7 @@ MULTIO_KEY_SET_DESCRIPTION(EncoderProductDef,             //
                            nestedOptKeyDef<EncoderProductDef::PointInTime, EncoderPointInTimeDef>(),        //
                            nestedOptKeyDef<EncoderProductDef::TimeRange, EncoderTimeRangeDef>(),            //
                            nestedOptKeyDef<EncoderProductDef::Process, EncoderProcessDef>(),                //
-                           nestedOptKeyDef<EncoderProductDef::Level, EncoderLevelDef>(),                    //
+                           nestedOptKeyDef<EncoderProductDef::Level, LevelDef>(),                           //
                            nestedOptKeyDef<EncoderProductDef::RandomPatterns, EncoderRandomPatternsDef>(),  //
                            nestedOptKeyDef<EncoderProductDef::Chemical, EncoderChemDef>(),                  //
                            nestedOptKeyDef<EncoderProductDef::DirFreq, EncoderDirFreqDef>(),                //

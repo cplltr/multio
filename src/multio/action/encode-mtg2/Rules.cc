@@ -159,7 +159,10 @@ auto randomPattern() {
 // Other setters
 
 auto typeOfLevel(TypeOfLevel lvl) {
-    return setKey<EncoderLevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>({lvl});
+    return setKey<LevelDef::Type, EncoderSectionsDef::Product, EncoderProductDef::Level>({lvl});
+}
+auto fixedLevel(KeyDefValueType_t<LevelDef::FixedLevel> lvl) {
+    return setKey<LevelDef::FixedLevel, EncoderSectionsDef::Product, EncoderProductDef::Level>({lvl});
 }
 auto localUse(std::int64_t num) {
     return setKey<EncoderLocalUseDef::TemplateNumber, EncoderSectionsDef::LocalUse>({num});
@@ -255,35 +258,35 @@ auto paramSFCRules() {
              pointInTime(), typeOfLevel(TypeOfLevel::EntireLake)),          //
         rule(all(matchLevType(LevType::SFC), matchParams(121)),             //
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
-             overallLengthOfTimeRange("6h"),                     //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),   //
-        rule(all(matchLevType(LevType::SFC), matchParams(122)),  //
+             overallLengthOfTimeRange("6h"),                                   //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),  //
+        rule(all(matchLevType(LevType::SFC), matchParams(122)),                //
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Minimum),
              overallLengthOfTimeRange("6h"),                                                               //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),                              //
         rule(all(matchLevType(LevType::SFC), matchParams(201)),                                            //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2), fixedLevel(10)),              //
         rule(all(matchLevType(LevType::SFC), matchParams(202)),                                            //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                             //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),                              //
         rule(all(matchLevType(LevType::SFC), matchParams(123)),                                            //
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
-             overallLengthOfTimeRange("6h"),                        //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),     //
-        rule(all(matchLevType(LevType::SFC), matchParams(228028)),  //
+             overallLengthOfTimeRange("6h"),                                     //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),  //
+        rule(all(matchLevType(LevType::SFC), matchParams(228028)),               //
              timeRange(TimeRangeType::FixedTimeRange, TypeOfStatisticalProcessing::Maximum),
              overallLengthOfTimeRange("3h"),                                                               //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                            //
         rule(all(matchLevType(LevType::SFC), matchParams(49)),                                             //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                            //
         rule(all(matchLevType(LevType::SFC), matchParams(235087, 235088, 235136, 235137, 235288)),         //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
              typeOfLevel(TypeOfLevel::EntireAtmosphere)),                                                  //
         rule(all(matchLevType(LevType::SFC), matchParams(228005, 235165, 235166)),                         //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                            //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                            //
         rule(all(matchLevType(LevType::SFC), matchParams(235151)),                                         //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Average),  //
              typeOfLevel(TypeOfLevel::MeanSea)),                                                           //
@@ -300,13 +303,13 @@ auto paramSFCRules() {
              typeOfLevel(TypeOfLevel::HeightAboveGround)),                                                   //
         rule(all(matchLevType(LevType::SFC), matchParams(165, 166, 207, 228029, 228131, 228132)),            //
              pointInTime(),                                                                                  //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m)),                                              //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt10m), fixedLevel(10)),                              //
         rule(all(matchLevType(LevType::SFC), matchParams(167, 168, 174096, 228037, 260242)),                 //
              pointInTime(),                                                                                  //
-             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m)),                                               //
+             typeOfLevel(TypeOfLevel::HeightAboveGroundAt2m), fixedLevel(2)),                                //
         rule(all(matchLevType(LevType::SFC), matchParams(140245, 140249, 140233)),                           //
              pointInTime(),                                                                                  //
-             typeOfLevel(TypeOfLevel::HeightAboveSeaAt10m)),                                                 //
+             typeOfLevel(TypeOfLevel::HeightAboveSeaAt10m), fixedLevel(10)),                                 //
         rule(all(matchLevType(LevType::SFC), matchParams(3075)),                                             //
              pointInTime(),                                                                                  //
              typeOfLevel(TypeOfLevel::HighCloudLayer)),                                                      //

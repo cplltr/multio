@@ -16,6 +16,9 @@
 namespace multio::action::sections {
 
 
+//-----------------------------------------------------------------------------
+
+
 void DynSectionSetter::prepare(util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
                                const datamod::Geometry&) const {}
 void DynSectionSetter::allocate(util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
@@ -72,6 +75,9 @@ void SectionCollector::runtime(util::MioGribHandle& h, const datamod::MarsKeyVal
         secRef.get().runtime(h, mars, misc, geo);
     }
 }
+
+
+//-----------------------------------------------------------------------------
 
 
 }  // namespace multio::action::sections

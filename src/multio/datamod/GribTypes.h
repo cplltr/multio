@@ -14,12 +14,6 @@
 #include "multio/util/Hash.h"
 #include "multio/util/MioGribHandle.h"
 #include "multio/util/TypeToString.h"
-#include "multio/util/TypeTraits.h"
-#include "multio/util/VariantHelpers.h"
-
-#include <chrono>
-#include <sstream>
-#include <string>
 
 
 namespace multio::datamod {
@@ -152,6 +146,7 @@ enum class TypeOfStatisticalProcessing : std::size_t
     IndexProcessing = 102,
 };
 
+std::ostream& operator<<(std::ostream&, const TypeOfLevel&);
 std::ostream& operator<<(std::ostream&, const TypeOfStatisticalProcessing&);
 
 }  // namespace multio::datamod

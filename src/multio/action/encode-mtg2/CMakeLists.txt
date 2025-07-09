@@ -28,6 +28,8 @@ ecbuild_add_library(
         sections/SectionSetter.h
         sections/SectionTypes.cc
         sections/SectionTypes.h
+        sections/Level.cc
+        sections/Level.h
         generated/InferPDT.h
         generated/InferPDTTest.h
 

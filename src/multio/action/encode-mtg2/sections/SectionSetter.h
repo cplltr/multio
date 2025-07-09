@@ -10,14 +10,10 @@
 
 #pragma once
 
-#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
-#include "multio/action/encode-mtg2/EncoderConf.h"
-#include "multio/datamod/DataModelling.h"
 #include "multio/datamod/MarsMiscGeo.h"
 #include "multio/util/MioGribHandle.h"
 
 #include <memory>
-#include <sstream>
 #include <vector>
 
 
@@ -35,6 +31,7 @@ struct DynSectionSetter {
         bool registerAllocate;
         bool registerPreset;
         bool registerRuntime;
+        bool registerCheck;
     };
 
     // Returns information about which methods are implemented and need to be called
@@ -53,6 +50,13 @@ struct DynSectionSetter {
     // Default implementation is to do nothing
     virtual void runtime(util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
                          const datamod::Geometry&) const;
+                         
+                         
+    // Implement a check method that is throwing on inconsistencies                 
+    virtual void check(const util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
+                         const datamod::Geometry&) const = 0;
+
+    virtual ~DynSectionSetter() = default;
 };
 
 
@@ -69,6 +73,9 @@ public:
                 const datamod::Geometry&) const;
     void runtime(util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
                  const datamod::Geometry&) const;
+                 
+    void check(util::MioGribHandle&, const datamod::MarsKeyValueSet&, const datamod::MiscKeyValueSet&,
+                 const datamod::Geometry&) const;
 
 private:
     // Storage of all sections
@@ -79,6 +86,7 @@ private:
     std::vector<std::reference_wrapper<const DynSectionSetter>> allocate_;
     std::vector<std::reference_wrapper<const DynSectionSetter>> preset_;
     std::vector<std::reference_wrapper<const DynSectionSetter>> runtime_;
+    std::vector<std::reference_wrapper<const DynSectionSetter>> check_;
 };
 
 
