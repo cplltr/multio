@@ -479,11 +479,11 @@ auto paramSFCRules() {
              periodRange(),
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
-                 matchParams(paramRange(228226, 237013, 237055, 237117, 237321))),                         //
+                 matchParams(228226, 237013, 237055, 237117, 237321)),                                     //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Maximum),  //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
-                 matchParams(paramRange(228227, 238055), 238013)),                                         //
+                 matchParams(228227, 238055, 238013)),                                                     //
              timeRange(TimeRangeType::SinceLastPostProcessingStep, TypeOfStatisticalProcessing::Minimum),  //
              typeOfLevel(TypeOfLevel::Surface)),                                                           //
         rule(all(matchLevType(LevType::SFC),                                                               //
