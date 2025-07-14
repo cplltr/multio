@@ -140,7 +140,7 @@ std::string WriteSpec<LevType>::write(LevType v) {
             return "al";
         default:
             throw DataModellingException(
-                "WriteSpec<LevType>::write: Unexpected enum value for LevType " + std::to_string(std::int64_t(v)),
+                "WriteSpec<LevType>::write: Unexpected enum value for LevType: " + std::to_string(std::int64_t(v)),
                 Here());
     }
 }
