@@ -252,9 +252,6 @@ IMPLICIT NONE
   ! Initialization of good path return value
   PP_SET_ERR_SUCCESS( RET )
 
-  ! Error handling
-  PP_DEBUG_CRITICAL_COND_THROW( ASSOCIATED(THIS%ENCODER_), ERRFLAG_ENCODER_ALREADY_ASSOCIATED )
-
 #if 0
   ! Copy options
   LOC_GRIB_SAMPLE = GRIB_SAMPLE
@@ -414,9 +411,6 @@ IMPLICIT NONE
   ! Initialization of good path return value
   PP_SET_ERR_SUCCESS( RET )
 
-  ! Error handling
-  PP_DEBUG_CRITICAL_COND_THROW( ASSOCIATED(THIS%ENCODER_), ERRFLAG_ENCODER_ALREADY_ASSOCIATED )
-
 #if 0
   ! Copy options
   LOC_GRIB_SAMPLE = GRIB_SAMPLE
@@ -575,9 +569,6 @@ IMPLICIT NONE
 
   ! Initialization of good path return value
   PP_SET_ERR_SUCCESS( RET )
-
-  ! Error handling
-  PP_DEBUG_CRITICAL_COND_THROW( ASSOCIATED(THIS%ENCODER_), ERRFLAG_ENCODER_ALREADY_ASSOCIATED )
 
 #if 0
   ! Copy options
