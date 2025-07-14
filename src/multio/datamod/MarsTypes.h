@@ -114,7 +114,9 @@ struct WriteSpec<Repres> {
 
 template <>
 struct ReadableTypes<Repres> {
-    using type = util::TypeList<Repres, std::string>;
+    // using type = util::TypeList<Repres, std::string>;
+    // Repres is explicitly not included for interfaces
+    using type = util::TypeList<std::string>;
 };
 template <>
 struct ReadSpec<Repres> {
@@ -132,7 +134,7 @@ struct WriteSpec<LevType> {
 
 template <>
 struct ReadableTypes<LevType> {
-    using type = util::TypeList<Repres, std::string>;
+    using type = util::TypeList<LevType, std::string>;
 };
 template <>
 struct ReadSpec<LevType> {
@@ -156,7 +158,7 @@ struct ParamMapper {
 };
 
 struct IntToBoolMapper {
-    using ReadableTypes = util::TypeList<bool, std::string>;
+    using ReadableTypes = util::TypeList<bool, std::int64_t>;
     
     static inline bool write(bool v) noexcept { return v; };
     static inline bool read(bool v) noexcept { return v; };

@@ -28,28 +28,26 @@ namespace mio = multio;
 namespace md = multio::datamod;
 namespace mu = multio::util;
 
-// template<typename KeySet_>
-// declytpe(auto) pyInitForKeySet(const KeySet_& ks) {
-//     return std::apply([](const auto& kd){
-//         return py::init<>()
-//     }, ks.keys())
-// }
+// Fake container that would allow specialization of `WriteSpec<>` in case some type needs customized conversion for
+// python output
+struct PyFakeContainer {};
 
-template <auto id_>
-using RetVar = std::variant<py::none, multio::datamod::KeyDefValueType_t<id_>>;
-
-template <auto id_, typename KS_ = md::KeySet<decltype(id_)>>
-struct GetFtor {
-    using ReadWrite = typename md::KeyValue<id_>::ReadWrite;
-    
-    RetVar<id_> operator()(const md::KeyValueSet<KS_>& kvs) const {
-        if (kvs.template key<id_>().isMissing()) {
-            return py::none{};
-        }
-        // ReadWrite::write(kvs.template key<id_>());
-        return kvs.template key<id_>().get();
+const char* mapReservedName(const std::string& v) {
+    if (v == "class") {
+        return "klass";
     }
-};
+    return v.c_str();
+}
+
+// template <typename KS_>
+// const std::vector<std::string> keyVect() {
+//     static const std::vector<std::string> ret{([]() {
+//         std::vector<std::string> vec;
+//         mu::forEach([](const auto& kd) { vec.push_back(kd.key()); }, KS_{}.keys());
+//         return vec;
+//     })()};
+//     return ret;
+// }
 
 template <auto id_, typename KS_ = md::KeySet<decltype(id_)>>
 struct SetFtor {
@@ -61,11 +59,38 @@ struct SetFtor {
         KeyReadableTypes>;
 
     using ValType = mu::ApplyTypeList_t<std::variant, ReadableTypes>;
-
     void operator()(md::KeyValueSet<KS_>& kvs, ValType val) const {
         std::visit(eckit::Overloaded{[&](py::none) { kvs.set<id_>(md::MissingValue{}); },
                                      [&](auto&& vi) { kvs.set<id_>(std::forward<decltype(vi)>(vi)); }},
                    std::move(val));
+    }
+};
+
+template <auto id_, typename KS_ = md::KeySet<decltype(id_)>>
+struct GetFtor {
+    using ReadWrite = typename md::KeyValue<id_>::ReadWrite;
+    using ReadableTypes = typename SetFtor<id_, KS_>::ReadableTypes;
+
+    // Some types are not exported but rather converted back to int or string via wrie
+    static constexpr bool doWrite = !mu::TypeListContains_v<md::KeyDefValueType_t<id_>, ReadableTypes>;
+    using RetValue = std::conditional_t<
+        doWrite,
+        std::decay_t<decltype(ReadWrite::template write<PyFakeContainer>(std::declval<md::KeyDefValueType_t<id_>>()))>,
+        md::KeyDefValueType_t<id_>>;
+
+    using RetVar = std::variant<py::none, RetValue>;
+
+    RetVar operator()(const md::KeyValueSet<KS_>& kvs) const {
+        if (kvs.template key<id_>().isMissing()) {
+            return py::none{};
+        }
+        if constexpr (doWrite) {
+            return ReadWrite::template write<PyFakeContainer>(kvs.template get<id_>());
+        }
+        else {
+            return kvs.template key<id_>().get();
+        }
+        return py::none{};  // Unreachable avoid compiler warning on clang
     }
 };
 
@@ -78,16 +103,67 @@ decltype(auto) makeEnum(MOD&& m, const std::string& enumName, const std::vector<
     return ret.export_values();
 };
 
+template <typename KD>
+decltype(auto) makeArg(const KD& kd) {
+    using KeyDefinition = typename md::KeyValue<KD::id>::Definition;
+    using RetVar = typename GetFtor<KD::id>::RetVar;
+    if constexpr (KeyDefinition::hasDefaultValueFunctor) {
+        return py::arg(mapReservedName(kd.key())) = RetVar{kd.defaultValue()};
+        // return py::arg(kd.key().value().c_str()) = RetVar{kd.defaultValue()};
+    }
+    return py::arg(mapReservedName(kd.key())) = RetVar{py::none{}};
+    // return py::arg(kd.key().value().c_str()) = RetVar{py::none{}};
+}
+
+template <typename KS, typename MOD>
+decltype(auto) addKeyValueSet(MOD&& m, const std::string& className) {
+    using KVS = md::KeyValueSet<KS>;
+    auto ret = py::class_<KVS>(m, className.c_str());
+
+    std::apply(
+        [&](const auto&... kd) {
+            // Build a lambda that takes all keys with the python represented values (defined through SetFtor)
+            // and then use the SetFtor to set them on a default initiated KeyValueSet
+            // Effectively given default arguments are applied from python here
+            ret.def(py::init([](typename SetFtor<std::decay_t<decltype(kd)>::id, KS>::ValType... args) {
+                        KVS kvs;
+                        (SetFtor<std::decay_t<decltype(kd)>::id, KS>{}(kvs, std::move(args)), ...);
+                        return kvs;
+                    }),
+                    makeArg(kd)...);
+        },
+        KS{}.keys());
+
+    ret.def("alterAndValidate", [](KVS& kvs) { md::alterAndValidate(kvs); });
+    ret.def("__repr__", [](const KVS& kvs) {
+        std::ostringstream oss;
+        oss << kvs;
+        return oss.str();
+    });
+
+    mu::forEach(
+        [&](const auto& kd) {
+            using KD = std::decay_t<decltype(kd)>;
+            ret.def_property(mapReservedName(kd.key().value()), GetFtor<KD::id>{}, SetFtor<KD::id>{},
+                             std::string(md::keyDef<KD::id>().description().value_or("")).c_str());
+        },
+        KS{});
+
+    return ret;
+};
+
 PYBIND11_MODULE(pyencode_mtg2, m) {
-    // py::class_<md::MissingValue>(m, "MissingValue")
-    //     .def(py::init<>());
     makeEnum(m, "LevType", md::allLevTypes());
 
-    py::class_<md::MarsKeyValueSet>(m, "Mars")
-        .def(py::init<>())
-        .def_property("param", GetFtor<md::MarsKeys::PARAM>{}, SetFtor<md::MarsKeys::PARAM>{})
-        .def_property(
-            "levtype", GetFtor<md::MarsKeys::LEVTYPE>{},
-            SetFtor<md::MarsKeys::LEVTYPE>{})
-        .def("alterAndValidate", [](md::MarsKeyValueSet& mars) { md::alterAndValidate(mars); });
+    addKeyValueSet<md::MarsKeySet>(m, "Mars");
+
+    addKeyValueSet<md::MiscKeySet>(m, "Misc");
 }
+
+
+// TODO
+// make stuff printable
+// more docstrings?
+// Export AlL some exceptions
+//
+
