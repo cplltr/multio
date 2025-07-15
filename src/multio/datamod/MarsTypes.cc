@@ -143,7 +143,9 @@ std::string WriteSpec<LevType>::write(LevType v) {
         case LevType::AL:
             return "al";
         default:
-            throw DataModellingException("WriteSpec<LevType>::write: Unexpected value for LevType", Here());
+            throw DataModellingException(
+                "WriteSpec<LevType>::write: Unexpected enum value for LevType " + std::to_string(std::int64_t(v)),
+                Here());
     }
 }
 
@@ -185,6 +187,14 @@ LevType ReadSpec<LevType>::read(const std::string& val) {
         return LevType::AL;
     }
     throw DataModellingException(std::string("ReadSpec<LevType>::read Unknown value for LevType: ") + val, Here());
+}
+
+const std::vector<LevType>& allLevTypes() {
+    static const std::vector<LevType> all{LevType::ML,  LevType::PL,  LevType::PV,  LevType::PT,
+                                          LevType::SOL, LevType::SFC, LevType::O2D, LevType::O3D,
+                                          LevType::HL,  LevType::HHL, LevType::HPL, LevType::AL};
+
+    return all;
 }
 
 

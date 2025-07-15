@@ -60,6 +60,8 @@ enum class LevType : std::size_t
     AL
 };
 
+const std::vector<LevType>& allLevTypes();
+
 std::ostream& operator<<(std::ostream&, const LevType&);
 }  // namespace multio::datamod
 
