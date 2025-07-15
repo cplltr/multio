@@ -234,6 +234,7 @@ IMPLICIT NONE
   !> Open the configuration file
   ! TODO currently we only set samples-path...
   ! PP_TRYCALL( ERRFLAG_LOADING_LOCAL_SAMPLE ) MAKE_METADATA( METADATA, 'grib', SAMPLE_FNAME, HOOKS )
+  NULLIFY( METADATA )
   PP_TRYCALL( ERRFLAG_LOADING_LOCAL_SAMPLE ) MAKE_METADATA( METADATA, 'grib', 'sample', HOOKS )
 
   !> Initialize the encoder
