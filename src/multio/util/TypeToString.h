@@ -23,6 +23,8 @@
 #include "eckit/config/LocalConfiguration.h"
 #include "eckit/filesystem/PathName.h"
 
+#include "multio/util/TypeTraits.h"
+
 namespace multio::util {
 
 //-----------------------------------------------------------------------------
@@ -54,6 +56,13 @@ struct TypeToString<T&> {
 template <typename T>
 struct TypeToString<T&&> {
     std::string operator()() const { return typeToString<std::remove_reference_t<T>>() + std::string("&&"); };
+};
+
+template <typename... T>
+struct TypeToString<TypeList<T...>> {
+    std::string operator()() const {
+        return std::string("TypeList<") + ((typeToString<T>() + std::string(", ")) + ... + std::string(">"));
+    }
 };
 
 
