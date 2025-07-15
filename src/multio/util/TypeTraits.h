@@ -163,6 +163,30 @@ struct UniqueTypeList<TypeList<T1, TX...>, TypeList<TP...>> {
 
 //-----------------------------------------------------------------------------
 
+template <typename TL, typename Processed = TypeList<>>
+struct UniqueTypeList;
+
+template <typename... TP>
+struct UniqueTypeList<TypeList<>, TypeList<TP...>> {
+    using type = TypeList<TP...>;
+};
+
+
+template <typename TL, typename Processed = TypeList<>>
+using UniqueTypeList_t = typename UniqueTypeList<TL, Processed>::type;
+
+template <typename T1, typename... TX, typename... TP>
+struct UniqueTypeList<TypeList<T1, TX...>, TypeList<TP...>> {
+    using type = UniqueTypeList_t<TypeList<TX...>,                                             //
+                                  std::conditional_t<TypeListContains_v<T1, TypeList<TP...>>,  //
+                                                     TypeList<TP...>,                          //
+                                                     TypeList<TP..., T1>>>;
+};
+
+
+//-----------------------------------------------------------------------------
+
+
 // Sane overload resolution - used to initialize and assign values to a variant finding "best" matches.
 // Default in C++20 and supported in C++17 by most but not all compilers (e.g. ICPC does not support it)
 
