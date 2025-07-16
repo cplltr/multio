@@ -508,6 +508,7 @@ MULTIO_KEY_SET_DESCRIPTION(
 namespace action {
 enum class EncoderSectionsDef : std::uint64_t
 {
+    Type,
     Indicator,
     Identification,
     LocalUse,
@@ -523,6 +524,7 @@ using action::EncoderSectionsDef;
 MULTIO_KEY_SET_DESCRIPTION(EncoderSectionsDef,                                                            //
                            "encoder",                                                                     //
                                                                                                           //
+                           KeyDef<EncoderSectionsDef::Type, std::string>{"type"}.withDefault("grib2"),    //
                            nestedKeyDef<EncoderSectionsDef::Indicator, EncoderIndicatorDef>(),            //
                            nestedKeyDef<EncoderSectionsDef::Identification, EncoderIdentificationDef>(),  //
                            nestedKeyDef<EncoderSectionsDef::LocalUse, EncoderLocalUseDef>(),              //
