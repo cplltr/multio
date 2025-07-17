@@ -19,6 +19,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ### dependencies
 
+# TODO make optional to properly integrate pybind11
+find_package(Python 3.11 COMPONENTS Interpreter Development REQUIRED)
+
 ecbuild_find_package( NAME eccodes     VERSION  2.31.2   REQUIRED )
 ecbuild_find_package( NAME eckit       VERSION  1.25     REQUIRED )
 ecbuild_find_package( NAME metkit      VERSION  1.10     REQUIRED )
@@ -177,6 +180,7 @@ include(cmake/compiler_warnings.cmake) # optionally handle compiler specific war
 
 include_directories( ${MULTIO_INCLUDE_DIRS} )
 
+add_subdirectory( third_party )
 add_subdirectory( src )
 add_subdirectory( tests )
 add_subdirectory( share )
