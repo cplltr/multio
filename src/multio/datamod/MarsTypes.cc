@@ -20,7 +20,6 @@
 
 namespace multio::datamod {
 
-
 std::variant<std::int64_t, std::string> WriteSpec<TimeDuration>::write(const TimeDuration& td) {
     using Ret = std::variant<std::int64_t, std::string>;
     return std::visit(eckit::Overloaded{[&](const std::chrono::hours& h) -> Ret { return h.count(); },
@@ -190,7 +189,6 @@ const std::vector<LevType>& allLevTypes() {
     static const std::vector<LevType> all{LevType::ML,  LevType::PL,  LevType::PV,  LevType::PT,
                                           LevType::SOL, LevType::SFC, LevType::O2D, LevType::O3D,
                                           LevType::HL,  LevType::HHL, LevType::HPL, LevType::AL};
-
     return all;
 }
 

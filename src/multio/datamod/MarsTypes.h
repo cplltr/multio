@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "multio/datamod/ReadableTypes.h"
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
 #include "multio/util/TypeToString.h"
@@ -91,6 +92,12 @@ struct WriteSpec<TimeDuration> {
 
 
 template <>
+struct ReadableTypes<TimeDuration> {
+    using type = util::TypeList<std::int64_t, std::string>;
+};
+
+
+template <>
 struct ReadSpec<TimeDuration> {
     static TimeDuration read(std::int64_t hours) noexcept;
     static TimeDuration read(const std::string& s);
@@ -102,6 +109,10 @@ struct WriteSpec<Repres> {
     static std::string write(Repres);
 };
 
+template <>
+struct ReadableTypes<Repres> {
+    using type = util::TypeList<Repres, std::string>;
+};
 template <>
 struct ReadSpec<Repres> {
     static inline Repres read(Repres v) noexcept { return v; };
@@ -117,6 +128,10 @@ struct WriteSpec<LevType> {
 };
 
 template <>
+struct ReadableTypes<LevType> {
+    using type = util::TypeList<Repres, std::string>;
+};
+template <>
 struct ReadSpec<LevType> {
     static inline LevType read(LevType v) noexcept { return v; };
     static LevType read(const std::string& s);
@@ -129,18 +144,23 @@ namespace mapper {
 // Currently `metkit::Param` is used to create a paramId from string
 // There is also the existing type `metkit::ParamID` which (unfortunately) can not be constructed from an eisting int.
 struct ParamMapper {
+    using ReadableTypes = util::TypeList<std::int64_t, std::string>;
+
     static std::int64_t write(std::int64_t) noexcept;
     static std::int64_t read(std::int64_t) noexcept;
     static std::int64_t read(const std::string&);
 };
 
 struct IntToBoolMapper {
+    using ReadableTypes = util::TypeList<bool, std::string>;
+
     static inline bool write(bool v) noexcept { return v; };
     static inline bool read(bool v) noexcept { return v; };
     static inline bool read(std::int64_t v) { return v > 0; };
 };
 
 }  // namespace mapper
+
 
 }  // namespace multio::datamod
 
