@@ -19,6 +19,7 @@
 #include <chrono>
 #include <sstream>
 #include <string>
+#include <variant>
 
 
 namespace multio::datamod {
@@ -28,6 +29,10 @@ namespace multio::datamod {
 
 using TimeDuration = std::variant<std::chrono::hours, std::chrono::seconds>;
 std::ostream& operator<<(std::ostream&, const TimeDuration&);
+
+// TODO Represent origin as enum and add mapping from stringified origin to enum with int values
+using Origin = std::variant<std::int64_t, std::string>;
+std::ostream& operator<<(std::ostream&, const Origin&);
 
 
 // To be renamed and kept internal - 
@@ -82,6 +87,11 @@ namespace multio::datamod {
 template <>
 struct WriteSpec<TimeDuration> {
     static std::string write(const TimeDuration&);
+};
+
+template <>
+struct WriteSpec<Origin> {
+    static std::string write(const Origin&);
 };
 
 template <>

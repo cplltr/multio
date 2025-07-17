@@ -1859,10 +1859,15 @@ decltype(auto) keyPath(KVS& conf) {
     return datamod::key<id_>(conf);
 }
 
-template <auto id1, auto... idx, typename KVS, std::enable_if_t<(sizeof...(idx) > 0), bool> = true>
+template <auto id1, auto... idx, typename KVS, std::enable_if_t<((sizeof...(idx) > 0) && std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
 decltype(auto) keyPath(KVS& conf) {
     auto& v1 = datamod::key<id1>(conf);
-    return keyPath<idx...>(v1.get());
+        return keyPath<idx...>(v1.get());
+}
+template <auto id1, auto... idx, typename KVS, std::enable_if_t<((sizeof...(idx) > 0) && !std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
+decltype(auto) keyPath(KVS& conf) {
+    auto& v1 = datamod::key<id1>(conf);
+    return keyPath<idx...>(v1.modify());
 }
 
 //-----------------------------------------------------------------------------

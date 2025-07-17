@@ -68,11 +68,11 @@ enum class EncoderOriginDef : std::uint64_t
 
 namespace datamod {
 using action::EncoderOriginDef;
-MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                               //
-                           "origin-configurator",                                                          //
-                                                                                                           //
-                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),     //
-                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.tagOptional())  //
+MULTIO_KEY_SET_DESCRIPTION(EncoderOriginDef,                                                                //
+                           "origin-configurator",                                                           //
+                                                                                                            //
+                           KeyDef<EncoderOriginDef::Type, std::string>{"type"}.withDefault("default"),      //
+                           KeyDef<EncoderOriginDef::SubCentre, std::int64_t>{"sub-centre"}.withDefault(0))  //
 };  // namespace datamod
 
 

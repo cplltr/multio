@@ -73,7 +73,7 @@ MULTIO_KEY_SET_DESCRIPTION(
     KeyDef<MarsKeys::TYPE, std::string>{"type"},                               //
     KeyDef<MarsKeys::CLASS, std::string>{"class"},                             //
     KeyDef<MarsKeys::PARAM, std::int64_t, mapper::ParamMapper>{"param"},       //
-    KeyDef<MarsKeys::ORIGIN, std::string>{"origin"}.withDefault("ecmf"),       //
+    KeyDef<MarsKeys::ORIGIN, Origin>{"origin"}.withDefault("ecmf"),       //
     KeyDef<MarsKeys::ANOFFSET, std::int64_t>{"anoffset"}.tagOptional(),        //
     KeyDef<MarsKeys::PACKING, std::string>{"packing"}.tagOptional(),           //
     KeyDef<MarsKeys::NUMBER, std::int64_t>{"number"}.tagOptional(),            //

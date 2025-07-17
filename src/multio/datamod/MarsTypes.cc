@@ -32,6 +32,12 @@ std::string WriteSpec<TimeDuration>::write(const TimeDuration& td) {
         td);
 }
 
+std::string WriteSpec<Origin>::write(const Origin& td) {
+    return std::visit(eckit::Overloaded{[&](const std::int64_t& o) { return std::to_string(o); },
+                                        [&](const std::string& s) { return s; }},
+                      td);
+}
+
 
 TimeDuration ReadSpec<TimeDuration>::read(std::int64_t hours) noexcept {
     return std::chrono::hours{hours};
@@ -224,6 +230,11 @@ std::ostream& operator<<(std::ostream& os, const LevType& t) {
 
 std::ostream& operator<<(std::ostream& os, const TimeDuration& t) {
     os << Writer<TimeDuration>::write(t);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Origin& t) {
+    os << Writer<Origin>::write(t);
     return os;
 }
 
