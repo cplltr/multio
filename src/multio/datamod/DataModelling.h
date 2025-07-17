@@ -15,6 +15,7 @@
 #include <variant>
 #include "eckit/utils/Overloaded.h"
 #include "multio/datamod/DataModellingException.h"
+#include "multio/datamod/ReadableTypes.h"
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
 #include "multio/util/PrehashedKey.h"
@@ -221,6 +222,9 @@ template <typename ValueType, typename Mapper>
 struct ReadWriteSpecs {
     template <typename V>
     inline static constexpr bool CanCreateFromValue_v = HasRead_v<Reader<ValueType, Mapper>, V>;
+
+    using ReadableTypes
+        = typename std::conditional_t<HasReadableTypes_v<Mapper>, Mapper, GetReadableTypes<ValueType>>::ReadableTypes;
 
     template <typename Val, std::enable_if_t<CanCreateFromValue_v<Val>, bool> = true>
     static decltype(auto) read(Val&& val) {
@@ -1193,33 +1197,33 @@ struct KeyValueSet {
         ret.scoped(customScope);
         return ret;
     };
-    
-    // Usability 
+
+    // Usability
     // Inline setting
-    template<auto id>
+    template <auto id>
     decltype(auto) key() const& {
         return datamod::key<id>(values);
     }
-    template<auto id>
+    template <auto id>
     decltype(auto) key() & {
         return datamod::key<id>(values);
     }
-    template<auto id>
+    template <auto id>
     decltype(auto) key() && {
         return datamod::key<id>(std::move(values));
     }
-    
-    template<auto id>
+
+    template <auto id>
     decltype(auto) get() const {
         return datamod::key<id>(values).get();
     }
-    
-    template<auto id>
+
+    template <auto id>
     decltype(auto) modify() {
         return datamod::key<id>(values).modify();
     }
 
-    template<auto id, typename Val>
+    template <auto id, typename Val>
     This& set(Val&& val) {
         datamod::key<id>(values).set(std::forward<Val>(val));
         return *this;

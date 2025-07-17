@@ -20,7 +20,6 @@
 
 namespace multio::datamod {
 
-
 std::string WriteSpec<TimeDuration>::write(const TimeDuration& td) {
     return std::visit(
         eckit::Overloaded{[&](const std::chrono::hours& h) {
@@ -199,7 +198,6 @@ const std::vector<LevType>& allLevTypes() {
     static const std::vector<LevType> all{LevType::ML,  LevType::PL,  LevType::PV,  LevType::PT,
                                           LevType::SOL, LevType::SFC, LevType::O2D, LevType::O3D,
                                           LevType::HL,  LevType::HHL, LevType::HPL, LevType::AL};
-
     return all;
 }
 
