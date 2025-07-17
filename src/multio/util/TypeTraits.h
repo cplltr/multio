@@ -161,28 +161,6 @@ struct UniqueTypeList<TypeList<T1, TX...>, TypeList<TP...>> {
                                                      TypeList<TP..., T1>>>;
 };
 
-//-----------------------------------------------------------------------------
-
-template <typename TL, typename Processed = TypeList<>>
-struct UniqueTypeList;
-
-template <typename... TP>
-struct UniqueTypeList<TypeList<>, TypeList<TP...>> {
-    using type = TypeList<TP...>;
-};
-
-
-template <typename TL, typename Processed = TypeList<>>
-using UniqueTypeList_t = typename UniqueTypeList<TL, Processed>::type;
-
-template <typename T1, typename... TX, typename... TP>
-struct UniqueTypeList<TypeList<T1, TX...>, TypeList<TP...>> {
-    using type = UniqueTypeList_t<TypeList<TX...>,                                             //
-                                  std::conditional_t<TypeListContains_v<T1, TypeList<TP...>>,  //
-                                                     TypeList<TP...>,                          //
-                                                     TypeList<TP..., T1>>>;
-};
-
 
 //-----------------------------------------------------------------------------
 
