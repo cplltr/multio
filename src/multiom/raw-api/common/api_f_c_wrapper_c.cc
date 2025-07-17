@@ -99,8 +99,8 @@ int hash_int8_array(const int8_t* data, size_t len, size_t* hash ) {
     const uint32_t fnv_offset = 2166136261u; // FNV offset basis
     uint32_t fnv_hash = fnv_offset;
     for (size_t i = 0; i < len; ++i) {
-        *fnv_hash ^= (uint32_t)(uint8_t)data[i];          // cast to uint8_t for consistency
-        *fnv_hash *= fnv_prime;          // FNV prime
+        fnv_hash ^= (uint32_t)(uint8_t)data[i];          // cast to uint8_t for consistency
+        fnv_hash *= fnv_prime;          // FNV prime
     }
     *hash = (size_t)fnv_hash; // cast to size_t for compatibility
     // MIVAL: code for debug interoperability on different compilers
