@@ -83,6 +83,7 @@ CONTAINS
   !> @brief Bind a grib handle to this object.
   PROCEDURE, NON_OVERRIDABLE, PUBLIC, PASS :: BIND_HANDLE => CGRIB_METADATA_BIND_HANDLE
   PROCEDURE, NON_OVERRIDABLE, PUBLIC, PASS :: UNBIND_HANDLE => CGRIB_METADATA_UNBIND_HANDLE
+  PROCEDURE, NON_OVERRIDABLE, PUBLIC, PASS :: TABLES_VERSION_LATEST => CGRIB_METADATA_GET_TABLES_VERSION_LATEST
 
   !> @brief Initializes the object with default values.
   PROCEDURE, NON_OVERRIDABLE, PUBLIC, PASS :: INIT_DEFAULT => CGRIB_METADATA_INIT_DEFAULT
@@ -2249,6 +2250,167 @@ PP_ERROR_HANDLER
   RETURN
 
 END FUNCTION CGRIB_METADATA_SET_INT64
+#undef PP_PROCEDURE_NAME
+#undef PP_PROCEDURE_TYPE
+
+
+
+#define PP_PROCEDURE_TYPE 'FUNCTION'
+#define PP_PROCEDURE_NAME 'CGRIB_METADATA_GET_TABLES_VERSION_LATEST'
+PP_THREAD_SAFE FUNCTION CGRIB_METADATA_GET_TABLES_VERSION_LATEST( THIS, VAL, HOOKS ) RESULT(RET)
+
+  ! Symbolds imported from intrinsic modules
+  USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: INT64
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LOC
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_PTR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_NULL_CHAR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_SIZE_T
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LONG
+
+  ! Symbols imported from other modules within the project.
+  USE :: DATAKINDS_DEF_MOD, ONLY: JPIM_K
+  USE :: DATAKINDS_DEF_MOD, ONLY: JPIB_K
+  USE :: HOOKS_MOD,         ONLY: HOOKS_T
+
+  ! Symbols imported by the preprocessor for debugging purposes
+  PP_DEBUG_USE_VARS
+
+  ! Symbols imported by the preprocessor for logging purposes
+  PP_LOG_USE_VARS
+
+  ! Symbols imported by the preprocessor for tracing purposes
+  PP_TRACE_USE_VARS
+
+IMPLICIT NONE
+
+  ! Dummy arguments
+  CLASS(CGRIB_METADATA_T), INTENT(INOUT) :: THIS
+  INTEGER(KIND=INT64),     INTENT(OUT)   :: VAL
+  TYPE(HOOKS_T),           INTENT(INOUT) :: HOOKS
+
+  !> Function result
+  INTEGER(KIND=JPIB_K) :: RET
+
+  ! Local variables
+  CHARACTER(LEN=*), PARAMETER :: KEY = 'tablesVersionLatest'
+  INTEGER(KIND=C_INT) :: KRET
+  INTEGER(KIND=JPIB_K) :: I
+  INTEGER(KIND=C_SIZE_T) :: C_LENGTH
+  CHARACTER(LEN=1,KIND=C_CHAR), DIMENSION(LEN(KEY)+1), TARGET :: C_KEY
+  INTEGER(KIND=C_LONG), TARGET :: C_VALUE
+
+  ! Local interfaces
+  INTERFACE
+    FUNCTION C_GRIB_GET_LONG( HANDLE, KEY, VALUES ) &
+&    RESULT(RET) BIND(C, NAME='grib_get_long')
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_PTR
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LONG
+    IMPLICIT NONE
+      TYPE(C_PTR), VALUE, INTENT(IN) :: HANDLE
+      TYPE(C_PTR), VALUE, INTENT(IN) :: KEY
+      TYPE(C_PTR), VALUE, INTENT(IN) :: VALUES
+      INTEGER(KIND=C_INT) :: RET
+    END FUNCTION C_GRIB_GET_LONG
+  END INTERFACE
+
+  ! Local error codes
+  INTEGER(KIND=JPIB_K), PARAMETER :: ERRFLAG_THIS_NOT_INITIALIZED=1_JPIB_K
+  INTEGER(KIND=JPIB_K), PARAMETER :: ERRFLAG_CONVERT_TO_CSTRING=2_JPIB_K
+  INTEGER(KIND=JPIB_K), PARAMETER :: ERRFLAG_GRIB_SET_FAILED=3_JPIB_K
+
+  ! Local variables declared by the preprocessor for debugging purposes
+  PP_DEBUG_DECL_VARS
+
+  ! Local variables declared by the preprocessor for logging purposes
+  PP_LOG_DECL_VARS
+
+  ! Local variables declared by the preprocessor for tracing purposes
+  PP_TRACE_DECL_VARS
+
+  ! Trace begin of procedure
+  PP_TRACE_ENTER_PROCEDURE()
+
+  ! Initialization of good path return value
+  PP_SET_ERR_SUCCESS( RET )
+
+  ! This procedure can be called only if the object is initialized
+  PP_DEBUG_DEVELOP_COND_THROW( .NOT.THIS%INITIALIZED_, ERRFLAG_THIS_NOT_INITIALIZED )
+
+  ! Copy filename to character array
+  DO I = 1, LEN_TRIM(KEY)
+    C_KEY(I) = KEY(I:I)
+  ENDDO
+  C_KEY(LEN_TRIM(KEY)+1) = C_NULL_CHAR
+
+  ! Prepare input for c-api
+  C_VALUE = INT(0, KIND=C_LONG)
+
+  ! Call the c-api function to set the real64 array
+  KRET = C_GRIB_GET_LONG( THIS%CGRIB_HANDLE_, C_LOC(C_KEY), C_LOC(C_VALUE) )
+  PP_DEBUG_CRITICAL_COND_THROW( KRET.NE.GRIB_SUCCESS, ERRFLAG_GRIB_SET_FAILED )
+
+  ! Set the return value
+  VAL = INT(C_VALUE, KIND=INT64)
+
+  ! Trace end of procedure (on success)
+  PP_TRACE_EXIT_PROCEDURE_ON_SUCCESS()
+
+  ! Exit point (On success)
+  RETURN
+
+! Error handler
+PP_ERROR_HANDLER
+
+  ! Initialization of bad path return value
+  PP_SET_ERR_FAILURE( RET )
+
+#if defined( PP_DEBUG_ENABLE_ERROR_HANDLING )
+!$omp critical(ERROR_HANDLER)
+
+  BLOCK
+
+    ! Error handling variables
+    CHARACTER(LEN=ERRMSG_LEN) :: ERRMSG
+    CHARACTER(LEN=32)   :: CTMP
+    INTEGER(KIND=JPIB_K) :: WRITE_STAT
+
+    ! Error handling variables
+    PP_DEBUG_PUSH_FRAME()
+
+    ! HAndle different errors
+    SELECT CASE(ERRIDX)
+    CASE (ERRFLAG_THIS_NOT_INITIALIZED)
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Handle not initialized' )
+    CASE (ERRFLAG_GRIB_SET_FAILED)
+      CALL CGRIB_GET_ERROR_MESSAGE( KRET, ERRMSG )
+      CTMP = REPEAT(' ', 32)
+      WRITE(CTMP, '(I32)', IOSTAT=WRITE_STAT) VAL
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Unable to get int64 value.' )
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Key: "'//TRIM(ADJUSTL(KEY))//'"' )
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Value: '//TRIM(ADJUSTL(CTMP)) )
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Error message: "'//TRIM(ADJUSTL(ERRMSG))//'"' )
+    CASE DEFAULT
+      PP_DEBUG_PUSH_MSG_TO_FRAME( 'Unhandled error' )
+    END SELECT
+
+    ! Trace end of procedure (on error)
+    PP_TRACE_EXIT_PROCEDURE_ON_ERROR()
+
+    ! Write the error message and stop the program
+    PP_DEBUG_ABORT
+
+  END BLOCK
+
+!$omp end critical(ERROR_HANDLER)
+#endif
+
+  ! Exit point (on error)
+  RETURN
+
+END FUNCTION CGRIB_METADATA_GET_TABLES_VERSION_LATEST
 #undef PP_PROCEDURE_NAME
 #undef PP_PROCEDURE_TYPE
 
