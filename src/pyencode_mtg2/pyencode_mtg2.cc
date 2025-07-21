@@ -24,9 +24,15 @@
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/TypeTraits.h"
 
+#include "multio/action/encode-mtg2/AtlasGeoSetter.h"
+#include "multio/action/encode-mtg2/EncoderConf.h"
+#include "multio/action/encode-mtg2/Options.h"
+
+
 namespace py = pybind11;
 namespace mio = multio;
 namespace md = multio::datamod;
+namespace ma = multio::action;
 namespace mu = multio::util;
 
 namespace multio::util {
@@ -178,6 +184,7 @@ decltype(auto) makeArg(const KD& kd) {
     using KeyDefinition = typename md::KeyValue<KD::id>::Definition;
     using RetVar = typename GetFtor<KD::id>::RetVar;
     if constexpr (KeyDefinition::hasDefaultValueFunctor) {
+        // todo use py:::arg_v to pass string repres
         return py::arg(mapReservedName(kd.key())) = RetVar{kd.defaultValue()};
         // return py::arg(kd.key().value().c_str()) = RetVar{kd.defaultValue()};
     }
@@ -301,14 +308,36 @@ PYBIND11_MODULE(pyencode_mtg2, m) {
     keyInfo.doc() = "Abstract object to retrieve information about key, type, scope and a description";
 
 
-    addKeyValueSet<md::MarsKeySet>(m, "Mars");
+    addKeyValueSet<md::MiscKeySet>(m, "Misc").doc()
+        = "Set of additional keys that are required to encode a grib file with the details it should have.";
 
-    addKeyValueSet<md::MiscKeySet>(m, "Misc");
+    addKeyValueSet<md::KeySet<md::GeoGG>>(m, "GeoGG").doc() = "Set of additional keys to describe gaussian grids";
+    addKeyValueSet<md::KeySet<md::GeoSH>>(m, "GeoSH").doc() = "Set of additional keys to describe spherical harmonics";
+    addKeyValueSet<md::KeySet<md::GeoHEALPix>>(m, "GeoHEALPix").doc()
+        = "Set of additional keys to describe HEALPix grids";
+
+    auto mars = addKeyValueSet<md::MarsKeySet>(m, "Mars");
+    mars.doc() = "Set of descriptive MARS keys that are used to properly produce grib2";
+    mars.def("makeGeometry", [](const md::MarsKeyValueSet& mars, bool inferGeo = true) -> md::Geometry {
+        return std::visit(
+            [&](const auto& geoKS) -> md::Geometry {
+                md::KeyValueSet<std::decay_t<decltype(geoKS)>> ret{};
+                const auto& grid = md::key<md::MarsKeys::GRID>(mars);
+                if (inferGeo && grid.has()) {
+                    ma::extract::setKeysFromAtlas(ret, grid.get());
+                }
+                return ret;
+            },
+            md::getGeometryKeySet(mars));
+    }, py::arg("infer_geo") = true);
+
+
+    addKeyValueSet<ma::EncoderSectionsKeySet>(m, "EncoderSections").doc()
+        = "Intermediate configuration for a specific mars keyset";
 }
 
 
 // TODO
-// make stuff printable
 // more docstrings?
 // Export AlL some exceptions
 //
