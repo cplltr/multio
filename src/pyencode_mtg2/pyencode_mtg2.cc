@@ -14,9 +14,14 @@
 
 #include <multio/datamod/MarsMiscGeo.h>
 
+#include <algorithm>
 #include <string>
 #include <variant>
 #include <vector>
+#include <cstdint>
+
+#include "eccodes.h"
+
 #include "eckit/utils/Overloaded.h"
 #include "multio/datamod/DataModelling.h"
 #include "multio/datamod/DataModellingException.h"
@@ -25,15 +30,35 @@
 #include "multio/util/TypeTraits.h"
 
 #include "multio/action/encode-mtg2/AtlasGeoSetter.h"
+#include "multio/action/encode-mtg2/EncoderCache.h"
 #include "multio/action/encode-mtg2/EncoderConf.h"
 #include "multio/action/encode-mtg2/Options.h"
+#include "multio/action/encode-mtg2/Rules.h"
 
 
 namespace py = pybind11;
 namespace mio = multio;
 namespace md = multio::datamod;
 namespace ma = multio::action;
+namespace mar = multio::action::rules;
 namespace mu = multio::util;
+
+
+namespace multio::datamod {
+template <>
+struct WriteSpec<eckit::PathName> {
+    static std::string write(const eckit::PathName& n) { return std::string(n); }
+};
+template <>
+struct ReadableTypes<eckit::PathName> {
+    using type = util::TypeList<std::string>;
+};
+template <>
+struct ReadSpec<eckit::PathName> {
+    static eckit::PathName read(const std::string& s) { return eckit::PathName{s}; };
+};
+};  // namespace multio::datamod
+
 
 namespace multio::util {
 template <>
@@ -46,11 +71,29 @@ struct TypeToString<py::none> {
 // python output
 struct PyFakeContainer {};
 
-const char* mapReservedName(const std::string& v) {
-    if (v == "class") {
+// const char* mapReservedName(const std::string& v) {
+//     if (v == "class") {
+//         return "klass";
+//     }
+//     return v.c_str();
+// }
+template <auto id_>
+const char* getValidPyKey(const md::ScopedKey<id_>& kd) {
+    // Map some reserved keys
+    if (kd.key().value() == "class") {
         return "klass";
     }
-    return v.c_str();
+
+    // Each key is templated - so we can use a static for each key to properly return a modified const char *
+    static std::optional<std::string> mappedKey;
+    if (!mappedKey) {
+        mappedKey = kd.key().value();
+        std::replace(mappedKey->begin(), mappedKey->end(), '-', '_');
+    }
+
+    return mappedKey->c_str();
+
+    // return kd.key().value().c_str();
 }
 
 template <typename KS_>
@@ -185,12 +228,25 @@ decltype(auto) makeArg(const KD& kd) {
     using RetVar = typename GetFtor<KD::id>::RetVar;
     if constexpr (KeyDefinition::hasDefaultValueFunctor) {
         // todo use py:::arg_v to pass string repres
-        return py::arg(mapReservedName(kd.key())) = RetVar{kd.defaultValue()};
-        // return py::arg(kd.key().value().c_str()) = RetVar{kd.defaultValue()};
+        return py::arg(getValidPyKey(kd)) = RetVar{kd.defaultValue()};
     }
-    return py::arg(mapReservedName(kd.key())) = RetVar{py::none{}};
-    // return py::arg(kd.key().value().c_str()) = RetVar{py::none{}};
+    return py::arg(getValidPyKey(kd)) = RetVar{py::none{}};
 }
+
+std::string makeKeyInfo(const md::DynKeyInfo& ki) {
+    return ki.keyInfo()
+         + (ki.description() ? (std::string(" ") + std::string(ki.description().value_or(""))) : std::string(""));
+}
+template <auto id_>
+const char* makeKeyInfo(const md::ScopedKey<id_>& ki) {
+    static std::optional<std::string> info;
+
+    if (!info) {
+        info = makeKeyInfo(static_cast<const md::DynKeyInfo&>(ki));
+    }
+    return info->c_str();
+}
+
 
 template <typename KS, typename MOD>
 decltype(auto) addKeyValueSet(MOD&& m, const std::string& className) {
@@ -215,6 +271,7 @@ decltype(auto) addKeyValueSet(MOD&& m, const std::string& className) {
     ret.def("alterAndValidate", [](KVS& kvs) { md::alterAndValidate(kvs); });
     ret.def("__repr__", [](const KVS& kvs) {
         std::ostringstream oss;
+        // customPrintKeyValueSet(kvs);
         oss << kvs;
         return oss.str();
     });
@@ -228,8 +285,6 @@ decltype(auto) addKeyValueSet(MOD&& m, const std::string& className) {
 
     // Complex function just to allow getting indexes with []
     // Convenient to access by string or key infor from iterator
-    // TODO throw key error if key is not in
-    // TODO overwrite __contains__
     ret.def("__getitem__", [](const KVS& kvs,
                               std::variant<std::string, std::reference_wrapper<const md::DynKeyInfo>> k) {
         std::string kStr = std::holds_alternative<std::string>(k) ? std::get<0>(k) : std::get<1>(k).get().key().value();
@@ -278,13 +333,28 @@ decltype(auto) addKeyValueSet(MOD&& m, const std::string& className) {
     mu::forEach(
         [&](const auto& kd) {
             using KD = std::decay_t<decltype(kd)>;
-            ret.def_property(mapReservedName(kd.key().value()), GetFtor<KD::id, KS>{}, SetFtor<KD::id, KS>{},
-                             std::string(md::keyDef<KD::id>().description().value_or("")).c_str());
+            ret.def_property(getValidPyKey(kd), GetFtor<KD::id, KS>{}, SetFtor<KD::id, KS>{}, makeKeyInfo(kd));
         },
         KS{});
 
     return ret;
 };
+
+// Build geometry from mars and possibly infer values
+md::Geometry makeGeometry(const md::MarsKeyValueSet& mars, bool inferGeo = true) {
+    return std::visit(
+        [&](const auto& geoKS) -> md::Geometry {
+            // Create it unscoped...
+            md::KeyValueSet<std::decay_t<decltype(geoKS)>> ret{};
+            const auto& grid = md::key<md::MarsKeys::GRID>(mars);
+            if (inferGeo && grid.has()) {
+                ma::extract::setKeysFromAtlas(ret, grid.get());
+            }
+            return ret;
+        },
+        md::getGeometryKeySet(mars));
+}
+
 
 PYBIND11_MODULE(pyencode_mtg2, m) {
     makeEnum(m, "LevType", md::allLevTypes());
@@ -302,9 +372,7 @@ PYBIND11_MODULE(pyencode_mtg2, m) {
               .def_property_readonly(
                   "description", [](const md::DynKeyInfo& ki) { return std::string(ki.description().value_or("")); },
                   "Longer description of the key")
-              .def("__repr__", [](const md::DynKeyInfo& ki) {
-                  return ki.keyInfo() + std::string(" ") + std::string(ki.description().value_or(""));
-              });
+              .def("__repr__", [](const md::DynKeyInfo& ki) { return makeKeyInfo(ki); });
     keyInfo.doc() = "Abstract object to retrieve information about key, type, scope and a description";
 
 
@@ -318,27 +386,34 @@ PYBIND11_MODULE(pyencode_mtg2, m) {
 
     auto mars = addKeyValueSet<md::MarsKeySet>(m, "Mars");
     mars.doc() = "Set of descriptive MARS keys that are used to properly produce grib2";
-    mars.def("makeGeometry", [](const md::MarsKeyValueSet& mars, bool inferGeo = true) -> md::Geometry {
-        return std::visit(
-            [&](const auto& geoKS) -> md::Geometry {
-                md::KeyValueSet<std::decay_t<decltype(geoKS)>> ret{};
-                const auto& grid = md::key<md::MarsKeys::GRID>(mars);
-                if (inferGeo && grid.has()) {
-                    ma::extract::setKeysFromAtlas(ret, grid.get());
-                }
-                return ret;
-            },
-            md::getGeometryKeySet(mars));
-    }, py::arg("infer_geo") = true);
+    mars.def(
+        "makeGeometry",
+        [](const md::MarsKeyValueSet& mars, bool inferGeo = true) { return makeGeometry(mars, inferGeo); },
+        py::arg("infer_geo") = true);
 
+    addKeyValueSet<ma::EncodeMtg2KeySet>(m, "EncoderConf").doc()
+        = "Configuration for the encoder. Most of the arguments are passed through to MultIOM.";
 
-    addKeyValueSet<ma::EncoderSectionsKeySet>(m, "EncoderSections").doc()
-        = "Intermediate configuration for a specific mars keyset";
+    auto encoder = py::class_<ma::EncoderCache>(m, "Encoder")  //
+                       .def(py::init<const ma::EncodeMtg2Conf&>(), py::arg("conf") = ([]() {
+                                                                       ma::EncodeMtg2Conf conf{};
+                                                                       alterAndValidate(conf);
+                                                                       return conf;
+                                                                   }()))
+                       .def("getSample", [](ma::EncoderCache& enc, const md::MarsKeyValueSet& mars,
+                                            const md::MiscKeyValueSet& misc, const md::Geometry& geo) {
+                           // auto gribapi = py::module::import("gribapi");
+                           auto sample = enc.getSample(mars, misc, geo);
+                           codes_handle* h = codes_handle_clone(sample.get()->raw());
+                           // Very unsafe - but eccodes gribapi does these things
+                           return reinterpret_cast<std::uintptr_t>(h);
+                       });
+    encoder.doc()
+        = "Encoder object that performs mars to grib mapping by preparing a grib2 handle with metadata being preset.";
+
+    // addKeyValueSet<ma::EncoderSectionsKeySet>(m, "EncoderSections").doc()
+    //     = "Intermediate configuration for a specific mars keyset";
+    // mars.def("buildEncoderConf", [](const md::MarsKeyValueSet& mars) { mar::buildEncoderConf(mars); });
 }
 
-
-// TODO
-// more docstrings?
-// Export AlL some exceptions
-//
 
