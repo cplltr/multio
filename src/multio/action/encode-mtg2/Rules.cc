@@ -1,4 +1,5 @@
 #include "multio/action/encode-mtg2/Rules.h"
+#include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/action/encode-mtg2/EncoderConf.h"
 #include "multio/action/encode-mtg2/generated/InferPDT.h"
 #include "multio/action/encode-mtg2/rules/Matcher.h"
@@ -750,6 +751,16 @@ const ExclusiveRuleList<MarsKeySet>& allRules() {
             packingRules()                    //
             ));
     return all_;
+}
+
+EncoderSections buildEncoderConf(const MarsKeyValueSet& mars) {
+    EncoderSections sections;
+    if (!allRules()(mars, sections)) {
+        std::ostringstream oss;
+        oss << "Cannot map mars keys. None of the outermost rules apply: " << allRules();
+        throw EncodeMtg2Exception(oss.str(), Here());
+    }
+    return sections;
 }
 
 }  // namespace multio::action::rules
