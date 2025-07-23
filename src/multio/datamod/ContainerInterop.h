@@ -20,6 +20,7 @@
 #include "multio/util/MioGribHandle.h"
 #include "multio/util/TypeToString.h"
 #include "multio/util/TypeTraits.h"
+#include "multio/util/VariantHelpers.h"
 
 
 namespace multio::datamod {
@@ -169,11 +170,15 @@ struct KeyValueWriter<message::BaseMetadata> : BaseKeyValueWriter<message::BaseM
     static void set(const KVD& kvd, KV_&& kv, MD& md) {
         using RW = typename KVD::ReadWrite;
         // TODO think about handling missing value by setting Null ?
-        std::forward<KV_>(kv).visit(eckit::Overloaded{
-            [&](MissingValue v) {},
-            [&](auto&& v) {
-                md.set(kvd.key(), RW::template write<message::BaseMetadata>(std::forward<decltype(v)>(v)));
-            }});
+        std::forward<KV_>(kv).visit(  //
+            eckit::Overloaded{[&](MissingValue v) {},
+                              [&](auto&& v) {
+                                  // The contained value might be or mapped to a variant, that's
+                                  // why we visit
+                                  RW::template writeAndVisit<message::BaseMetadata>(
+                                      std::forward<decltype(v)>(v),
+                                      [&](auto&& vi) { md.set(kvd.key(), std::forward<decltype(vi)>(vi)); });
+                              }});
     }
 };
 
@@ -322,8 +327,10 @@ struct KeyValueWriter<eckit::LocalConfiguration> : BaseKeyValueWriter<eckit::Loc
         std::forward<KV_>(kv).visit(eckit::Overloaded{
             [&](MissingValue v) {},
             [&](auto&& v) {
-                conf.set(std::string(kvd.key()),
-                         KVD::ReadWrite::template write<eckit::LocalConfiguration>(std::forward<decltype(v)>(v)));
+                // The contained value might be or mapped to a variant, that's why we visit
+                KVD::ReadWrite::template writeAndVisit<eckit::LocalConfiguration>(
+                    std::forward<decltype(v)>(v),
+                    [&](auto&& vi) { conf.set(std::string(kvd.key()), std::forward<decltype(vi)>(vi)); });
             }});
     }
 };
@@ -421,12 +428,10 @@ struct KeyValueReader<util::MioGribHandle> : BaseKeyValueReader<util::MioGribHan
                 if constexpr (RW::template CanCreateFromValue_v<std::string>) {
                     return toKeyValue(kvd, handle.getString(kvd.key()));
                 }
-                else if constexpr (std::is_integral_v<ValueType>
-                                   && RW::template CanCreateFromValue_v<long>) {
+                else if constexpr (std::is_integral_v<ValueType> && RW::template CanCreateFromValue_v<long>) {
                     return toKeyValue(kvd, handle.getLong(kvd.key()));
                 }
-                else if constexpr (std::is_floating_point_v<ValueType>
-                                   && RW::template CanCreateFromValue_v<double>) {
+                else if constexpr (std::is_floating_point_v<ValueType> && RW::template CanCreateFromValue_v<double>) {
                     return toKeyValue(kvd, handle.getDouble(kvd.key()));
                 }
                 else {
@@ -466,7 +471,10 @@ struct KeyValueWriter<util::MioGribHandle> : BaseKeyValueWriter<util::MioGribHan
                     oss << "Key " << kvd.keyInfo() << " should be written but is not defined on  eccodes handle.";
                     throw DataModellingException(oss.str(), Here());
                 }
-                handle.setValue(kvd.key(), RW::template write<util::MioGribHandle>(std::forward<decltype(v)>(v)));
+                // The contained value might be or mapped to a variant, that's why we visit
+                RW::template writeAndVisit<util::MioGribHandle>(std::forward<decltype(v)>(v), [&](auto&& vi) {
+                    handle.setValue(kvd.key(), std::forward<decltype(vi)>(vi));
+                });
             }});
     }
 };

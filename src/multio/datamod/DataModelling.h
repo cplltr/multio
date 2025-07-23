@@ -231,6 +231,11 @@ struct ReadWriteSpecs {
     static decltype(auto) write(Val&& val) {
         return Writer<ValueType, Container, Mapper>::write(std::forward<Val>(val));
     }
+
+    template <typename Container, typename Val, typename Func>
+    static decltype(auto) writeAndVisit(Val&& val, Func&& func) {
+        return Writer<ValueType, Container, Mapper>::writeAndVisit(std::forward<Val>(val), std::forward<Func>(func));
+    }
 };
 
 // Base key definition without id specialization
@@ -1193,33 +1198,33 @@ struct KeyValueSet {
         ret.scoped(customScope);
         return ret;
     };
-    
-    // Usability 
+
+    // Usability
     // Inline setting
-    template<auto id>
+    template <auto id>
     decltype(auto) key() const& {
         return datamod::key<id>(values);
     }
-    template<auto id>
+    template <auto id>
     decltype(auto) key() & {
         return datamod::key<id>(values);
     }
-    template<auto id>
+    template <auto id>
     decltype(auto) key() && {
         return datamod::key<id>(std::move(values));
     }
-    
-    template<auto id>
+
+    template <auto id>
     decltype(auto) get() const {
         return datamod::key<id>(values).get();
     }
-    
-    template<auto id>
+
+    template <auto id>
     decltype(auto) modify() {
         return datamod::key<id>(values).modify();
     }
 
-    template<auto id, typename Val>
+    template <auto id, typename Val>
     This& set(Val&& val) {
         datamod::key<id>(values).set(std::forward<Val>(val));
         return *this;
@@ -1859,12 +1864,14 @@ decltype(auto) keyPath(KVS& conf) {
     return datamod::key<id_>(conf);
 }
 
-template <auto id1, auto... idx, typename KVS, std::enable_if_t<((sizeof...(idx) > 0) && std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
+template <auto id1, auto... idx, typename KVS,
+          std::enable_if_t<((sizeof...(idx) > 0) && std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
 decltype(auto) keyPath(KVS& conf) {
     auto& v1 = datamod::key<id1>(conf);
-        return keyPath<idx...>(v1.get());
+    return keyPath<idx...>(v1.get());
 }
-template <auto id1, auto... idx, typename KVS, std::enable_if_t<((sizeof...(idx) > 0) && !std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
+template <auto id1, auto... idx, typename KVS,
+          std::enable_if_t<((sizeof...(idx) > 0) && !std::is_const_v<std::remove_reference_t<KVS>>), bool> = true>
 decltype(auto) keyPath(KVS& conf) {
     auto& v1 = datamod::key<id1>(conf);
     return keyPath<idx...>(v1.modify());

@@ -12,8 +12,8 @@
 
 #include "multio/datamod/ReaderWriter.h"
 #include "multio/util/Hash.h"
-#include "multio/util/TypeTraits.h"
 #include "multio/util/TypeToString.h"
+#include "multio/util/TypeTraits.h"
 #include "multio/util/VariantHelpers.h"
 
 #include <chrono>
@@ -35,7 +35,7 @@ using IntOrString = std::variant<std::int64_t, std::string>;
 std::ostream& operator<<(std::ostream&, const IntOrString&);
 
 
-// To be renamed and kept internal - 
+// To be renamed and kept internal -
 enum class Repres : std::size_t
 {
     GG,
@@ -48,7 +48,7 @@ enum class Repres : std::size_t
 std::ostream& operator<<(std::ostream&, const Repres&);
 
 
-// To be renamed and kept internal - 
+// To be renamed and kept internal -
 enum class LevType : std::size_t
 {
     ML,
@@ -89,11 +89,6 @@ struct WriteSpec<TimeDuration> {
     static std::string write(const TimeDuration&);
 };
 
-// TODO remove - make variant an acceptable return type
-template <>
-struct WriteSpec<IntOrString> {
-    static std::string write(const IntOrString&);
-};
 
 template <>
 struct ReadSpec<TimeDuration> {

@@ -12,6 +12,7 @@
 
 #include <type_traits>
 #include <utility>
+#include "multio/util/VariantHelpers.h"
 
 // This file describes an interface for customization mapping methods to read/write (or encode/decode) for existing
 // types through specilization of classes `ReadSpec<>` or `WriteSpec<>` with the static methods `read` and `write`.
@@ -90,6 +91,9 @@ struct WriteSpec;
 
 struct DefaultMapper {};
 
+// Accessor to parse values for ValueType
+// either via ReadSpec<> specialization, a CustomMapper::read
+// or conversion
 template <typename ValueType, typename CustomMapper = DefaultMapper>
 struct Reader {
     // Identity
@@ -126,11 +130,15 @@ struct Reader {
     static ValueType read(Val&& val) {
         return std::forward<Val>(val);
     }
-
-    static const ValueType& write(const ValueType& val) { return val; }
 };
 
 
+// Accessor to map values for ValueType
+// either via WriteSpecc<> specialization or a CustomMapper::write
+// to a basic type that is more appropriate for usual containers.
+// Note: Variants are explicitly accepted as a mapped type to allow types to
+// have multiple representation.
+// Thats why the `writeAndVisit` can/should be used
 template <typename ValueType, typename Container = void, typename CustomMapper = DefaultMapper>
 struct Writer {
     // WriteSpec<ValueType, Container>::write is defined and has precedence over WriteSpec<ValueType, void>,
@@ -178,6 +186,12 @@ struct Writer {
         = true>
     static decltype(auto) write(Val&& val) {
         return std::forward<Val>(val);
+    }
+
+    template <typename Val, typename Func>
+    static decltype(auto) writeAndVisit(Val&& val, Func&& func) {
+        return util::visitOrForward(std::forward<Func>(func),
+                                    Writer<ValueType, Container, CustomMapper>::write(std::forward<Val>(val)));
     }
 };
 
