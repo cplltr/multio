@@ -31,8 +31,8 @@ using TimeDuration = std::variant<std::chrono::hours, std::chrono::seconds>;
 std::ostream& operator<<(std::ostream&, const TimeDuration&);
 
 // TODO Represent origin as enum and add mapping from stringified origin to enum with int values
-using Origin = std::variant<std::int64_t, std::string>;
-std::ostream& operator<<(std::ostream&, const Origin&);
+using IntOrString = std::variant<std::int64_t, std::string>;
+std::ostream& operator<<(std::ostream&, const IntOrString&);
 
 
 // To be renamed and kept internal - 
@@ -89,9 +89,10 @@ struct WriteSpec<TimeDuration> {
     static std::string write(const TimeDuration&);
 };
 
+// TODO remove - make variant an acceptable return type
 template <>
-struct WriteSpec<Origin> {
-    static std::string write(const Origin&);
+struct WriteSpec<IntOrString> {
+    static std::string write(const IntOrString&);
 };
 
 template <>

@@ -32,7 +32,7 @@ std::string WriteSpec<TimeDuration>::write(const TimeDuration& td) {
         td);
 }
 
-std::string WriteSpec<Origin>::write(const Origin& td) {
+std::string WriteSpec<IntOrString>::write(const IntOrString& td) {
     return std::visit(eckit::Overloaded{[&](const std::int64_t& o) { return std::to_string(o); },
                                         [&](const std::string& s) { return s; }},
                       td);
@@ -233,8 +233,8 @@ std::ostream& operator<<(std::ostream& os, const TimeDuration& t) {
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Origin& t) {
-    os << Writer<Origin>::write(t);
+std::ostream& operator<<(std::ostream& os, const IntOrString& t) {
+    os << Writer<IntOrString>::write(t);
     return os;
 }
 
