@@ -21,15 +21,13 @@
 namespace multio::datamod {
 
 
-std::string WriteSpec<TimeDuration>::write(const TimeDuration& td) {
-    return std::visit(
-        eckit::Overloaded{[&](const std::chrono::hours& h) {
-                              // The fortran encoder currently don't accepts units - after that we should remove them
-                              // quickly return std::to_string(h.count()) + std::string("h");
-                              return std::to_string(h.count());
-                          },
-                          [&](const std::chrono::seconds& s) { return std::to_string(s.count()) + std::string("s"); }},
-        td);
+std::variant<std::int64_t, std::string> WriteSpec<TimeDuration>::write(const TimeDuration& td) {
+    using Ret = std::variant<std::int64_t, std::string>;
+    return std::visit(eckit::Overloaded{[&](const std::chrono::hours& h) -> Ret { return h.count(); },
+                                        [&](const std::chrono::seconds& s) -> Ret {
+                                            return std::to_string(s.count()) + std::string("s");
+                                        }},
+                      td);
 }
 
 TimeDuration ReadSpec<TimeDuration>::read(std::int64_t hours) noexcept {
