@@ -185,6 +185,8 @@ add_subdirectory( src )
 add_subdirectory( tests )
 add_subdirectory( share )
 
+include(python_generate_wheel)
+
 ### finalize project
 
 ecbuild_pkgconfig(NAME multio
