@@ -52,6 +52,11 @@ struct TypeToString<datamod::Repres> {
 namespace multio::datamod {
 
 template <>
+struct ParsableTypes<Repres> {
+    using type = util::TypeList<Repres, std::string>;
+};
+
+template <>
 struct DumpType<Repres> {
     static std::string dump(Repres);
 };

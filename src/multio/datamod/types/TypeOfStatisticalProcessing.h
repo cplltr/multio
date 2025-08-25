@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "multio/datamod/Glossary.h"
 #include "multio/datamod/core/TypeParserDumper.h"
 #include "multio/util/Print.h"
 #include "multio/util/TypeToString.h"
@@ -59,6 +60,12 @@ struct TypeToString<datamod::TypeOfStatisticalProcessing> {
 
 
 namespace multio::datamod {
+
+
+template <>
+struct ParsableTypes<TypeOfStatisticalProcessing> {
+    using type = util::TypeList<TypeOfStatisticalProcessing, std::int64_t, std::string>;
+};
 
 template <>
 struct DumpType<TypeOfStatisticalProcessing> {

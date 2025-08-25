@@ -10,11 +10,11 @@
 
 #pragma once
 
+#include "multio/datamod/core/ParsableTypes.h"
 #include "multio/datamod/core/TypeParserDumper.h"
 
 #include "multio/util/Print.h"
 #include "multio/util/TypeToString.h"
-
 
 
 namespace multio::datamod {
@@ -63,6 +63,11 @@ struct TypeToString<datamod::LevType> {
 }  // namespace multio::util
 
 namespace multio::datamod {
+
+template <>
+struct ParsableTypes<LevType> {
+    using type = util::TypeList<LevType, std::string>;
+};
 
 template <>
 struct DumpType<LevType> {

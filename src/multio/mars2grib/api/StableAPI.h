@@ -109,6 +109,8 @@ enum class GeometryType : std::size_t
     HEALPix,  // HEALPix
 };
 
+GeometryType parseGeometryType(const std::string& val);
+
 struct GeometryValues {
 
     /**

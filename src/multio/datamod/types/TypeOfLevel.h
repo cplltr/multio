@@ -140,6 +140,10 @@ struct TypeToString<datamod::TypeOfLevel> {
 
 namespace multio::datamod {
 
+template <>
+struct ParsableTypes<TypeOfLevel> {
+    using type = util::TypeList<TypeOfLevel, std::string>;
+};
 
 template <>
 struct DumpType<TypeOfLevel> {

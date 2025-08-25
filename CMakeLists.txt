@@ -35,6 +35,16 @@ ecbuild_add_option( FEATURE FDB5
                     DESCRIPTION "Send data to FDB5"
                     REQUIRED_PACKAGES "NAME fdb5 VERSION 5.11.20" )
 
+### Building python bindings
+
+ecbuild_add_option( FEATURE PYTHON
+                    DEFAULT ON
+                    DESCRIPTION "Build Python API bindings" )
+
+if( HAVE_PYTHON )
+    find_package(Python 3.11 COMPONENTS Interpreter Development REQUIRED)
+endif()
+
 ### eckit-codec plugin
 
 set( eckit_HAVE_ECKIT_CODEC 0 )
@@ -177,6 +187,7 @@ include(cmake/compiler_warnings.cmake) # optionally handle compiler specific war
 
 include_directories( ${MULTIO_INCLUDE_DIRS} )
 
+add_subdirectory( third_party )
 add_subdirectory( src )
 add_subdirectory( tests )
 add_subdirectory( share )

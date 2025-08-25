@@ -14,22 +14,29 @@
 #include <cstdint>
 #include <string>
 
+#include "multio/util/TypeTraits.h"
 
 namespace multio::datamod::mapper {
 
 struct StringToIntMapper {
+    using ParsableTypes = util::TypeList<std::int64_t, std::string>;
+
     static inline std::int64_t dump(std::int64_t v) noexcept { return v; };
     static inline std::int64_t parse(std::int64_t v) noexcept { return v; };
     static std::int64_t parse(const std::string& v);
 };
 
 struct ParamMapper {
+    using ParsableTypes = util::TypeList<std::int64_t, std::string>;
+
     static std::int64_t dump(std::int64_t) noexcept;
     static std::int64_t parse(std::int64_t) noexcept;
     static std::int64_t parse(const std::string&);
 };
 
 struct BoolMapper {
+    using ParsableTypes = util::TypeList<bool, std::int64_t, std::string>;
+
     static inline bool dump(bool v) noexcept { return v; };
     static inline bool parse(bool v) noexcept { return v; };
     static inline bool parse(std::int64_t v) { return v > 0; };

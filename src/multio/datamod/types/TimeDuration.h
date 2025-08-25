@@ -84,6 +84,11 @@ struct TypeToString<datamod::TimeDuration> {
 namespace multio::datamod {
 
 template <>
+struct ParsableTypes<TimeDuration> {
+    using type = util::TypeList<TimeDuration, std::int64_t, std::string>;
+};
+
+template <>
 struct DumpType<TimeDuration> {
     static IntOrString dump(const TimeDuration&);
 };
