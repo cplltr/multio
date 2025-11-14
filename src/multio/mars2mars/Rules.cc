@@ -13,53 +13,103 @@ using namespace rules;
 using namespace multio::mars2grib::matcher;
 
 //-----------------------------------------------------------------------------
+// Fix borrowed parameters type=es stream=elda
+//-----------------------------------------------------------------------------
+
+const RuleList& eldaESBorrowedParams() {
+    static auto eldaES_ = ruleList(
+        // covar_t2m_swvl1
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(139)),
+             setMarsKey(dm::PARAM, 254001)),
+        // covar_rh2m_swvl1
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(170)),
+             setMarsKey(dm::PARAM, 254002)),
+        // covar_ssm_swvl1
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(183)),
+             setMarsKey(dm::PARAM, 254003)),
+        // var_swvl1
+        // TODO(pgeier) add derivedforecast - for type=es eccodes sets derivedForecast 4 (spread of all members) -
+        // reversemapping may be broken
+        // rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(39)),
+        //      setMiscKey(dm::DERIVEDFORECAST, 10)),
+        // covar_t2m_swvl2
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(140)),
+             setMarsKey(dm::PARAM, 254004)),
+        // covar_rh2m_swvl2
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(171)),
+             setMarsKey(dm::PARAM, 254005)),
+        // covar_ssm_swvl2
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(184)),
+             setMarsKey(dm::PARAM, 254006)),
+        // var_swvl2
+        // TODO(pgeier) add derivedforecast
+        // rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(40)),
+        //      setMarsKey(dm::DERIVEDFORECAST, 10)),
+        // covar_t2m_swvl3
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(236)),
+             setMarsKey(dm::PARAM, 254007)),
+        // covar_rh2m_swvl3
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(42)), setMarsKey(dm::PARAM, 254008)),
+        // covar_ssm_swvl3
+        rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(183)), setMarsKey(dm::PARAM, 254009))
+        // var_swvl3
+        // TODO(pgeier) add derivedforecast
+        // rule(all(OneOf{dm::STREAM, {"elda"}}, OneOf{dm::TYPE, {"es"}}, matchParams(41)),
+        //      setMarsKey(dm::DERIVEDFORECAST, 10))
+    );
+
+    return eldaES_;
+}
+
+
+//-----------------------------------------------------------------------------
 // SOL fixes
 //-----------------------------------------------------------------------------
 
 // To param 262024
 
 auto fixParam35ToSol1() {
-    return rule(all(matchParams(35), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 1),  //
-                setMarsKey(dm::PARAM, 262024));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(35), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 1),                  //
+                setMarsKey(dm::PARAM, 262024));                                                          //
 }
 auto fixParam36ToSol2() {
-    return rule(all(matchParams(36), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 2),  //
-                setMarsKey(dm::PARAM, 262024));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(36), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 2),                  //
+                setMarsKey(dm::PARAM, 262024));                                                          //
 }
 auto fixParam37ToSol3() {
-    return rule(all(matchParams(37), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 3),  //
-                setMarsKey(dm::PARAM, 262024));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(37), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 3),                  //
+                setMarsKey(dm::PARAM, 262024));                                                          //
 }
 auto fixParam38ToSol4() {
-    return rule(all(matchParams(38), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 4),  //
-                setMarsKey(dm::PARAM, 262024));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(38), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 4),                  //
+                setMarsKey(dm::PARAM, 262024));                                                          //
 }
 
 // To param 260199
 
 auto fixParam39ToSol1() {
-    return rule(all(matchParams(39), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 1),  //
-                setMarsKey(dm::PARAM, 260199));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(39), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 1),                  //
+                setMarsKey(dm::PARAM, 260199));                                                          //
 }
 auto fixParam40ToSol2() {
-    return rule(all(matchParams(40), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 2),  //
-                setMarsKey(dm::PARAM, 260199));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(40), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 2),                  //
+                setMarsKey(dm::PARAM, 260199));                                                          //
 }
 auto fixParam41ToSol3() {
-    return rule(all(matchParams(41), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 3),  //
-                setMarsKey(dm::PARAM, 260199));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(41), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 3),                  //
+                setMarsKey(dm::PARAM, 260199));                                                          //
 }
 auto fixParam42ToSol4() {
-    return rule(all(matchParams(42), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),            //
-                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 4),  //
-                setMarsKey(dm::PARAM, 260199));                                          //
+    return rule(all(NoneOf{dm::TYPE, {"es"}}, matchParams(42), OneOf{dm::LEVTYPE, {dm::LevType::SFC}}),  //
+                setMarsKey(dm::LEVTYPE, dm::LevType::SOL), setMarsKey(dm::LEVELIST, 4),                  //
+                setMarsKey(dm::PARAM, 260199));                                                          //
 }
 
 
