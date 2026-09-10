@@ -22,7 +22,7 @@
 
 #include "multio/action/encode-mtg2/EncodeMtg2Exception.h"
 #include "multio/datamod/MarsMiscGeo.h"
-#include "multio/mars2mars/Rules.h"
+#include "multio/datamod/types/TimeSpan.h"
 #include "multio/message/Parametrization.h"
 #include "multio/util/PrecisionTag.h"
 
@@ -86,32 +86,13 @@ void EncodeMtg2::executeImpl(Message msg) {
     auto miscRec = dm::readRecord<dm::MiscRecord>(md);
 
     // Apply mappings
-    auto mappingResult = mars2mars::applyMappings(mars2mars::allRules(), marsRec, miscRec);
+    fake_double_loop::fakeDoubleLoop(marsRec);
 
     executeNext(dispatchPrecisionTag(msg.precision(), [&](auto pt) {
         using Precision = typename decltype(pt)::type;
         msg.payload().acquire();
         auto values = static_cast<Precision*>(msg.payload().modifyData());
         size_t size = msg.payload().size() / sizeof(Precision);
-
-        // Check if values need scaling
-        if (mappingResult && mappingResult->valuesScaleFactor) {
-            ASSERT(values);
-
-            const auto scaleFactor = *(mappingResult->valuesScaleFactor);
-
-            if (miscRec.missingValue.isSet()) {
-                const double missing = miscRec.missingValue.get();
-                std::transform(values, values + size, values, [&](const Precision& value) -> Precision {
-                    return static_cast<Precision>(value == missing ? missing : value * scaleFactor);
-                });
-            }
-            else {
-                std::transform(values, values + size, values, [&](const Precision& value) -> Precision {
-                    return static_cast<Precision>(value * scaleFactor);
-                });
-            }
-        }
 
         // Call the GRIB2 encoder in metkit
         const auto sample = encode(encoder_, cache_, values, size, marsRec, miscRec);
