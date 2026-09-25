@@ -27,9 +27,20 @@ using multio::message::Metadata;
 using multio::test::MultioTestEnvironment;
 
 
-CASE("simple checkpoint and restart") {
+namespace {
+
+// Substitute {LIB} in the plan with the name of the restart backend
+std::string withRestartLib(std::string plan, const std::string& restartLib) {
+    const std::string tag = "{LIB}";
+    for (auto pos = plan.find(tag); pos != std::string::npos; pos = plan.find(tag, pos)) {
+        plan.replace(pos, tag.size(), restartLib);
+    }
+    return plan;
+}
+
+void checkpointAndRestart(const std::string& restartLib) {
     {
-        const std::string plan = R"json({
+        const std::string plan = withRestartLib(R"json({
             "name": "MULTIO_TEST",
             "actions": [
                 {
@@ -42,7 +53,8 @@ CASE("simple checkpoint and restart") {
                         "restart-path": ".",
                         "read-restart": false,
                         "write-restart": true,
-                        restart-lib: "eckit_codec",
+                        "restart-lib": "{LIB}",
+                        "restart-prefix": "{LIB}",
                         "restart-time": "latest"
                     }
                 },
@@ -50,7 +62,7 @@ CASE("simple checkpoint and restart") {
                     "type": "debug-sink"
                 }
             ]
-        })json";
+        })json", restartLib);
         auto env = MultioTestEnvironment(plan);
         EXPECT_EQUAL(env.debugSink().size(), 0);
 
@@ -92,7 +104,7 @@ CASE("simple checkpoint and restart") {
 
 
     {
-        const std::string plan = R"json({
+        const std::string plan = withRestartLib(R"json({
             "name": "MULTIO_TEST",
             "actions": [
                 {
@@ -105,7 +117,8 @@ CASE("simple checkpoint and restart") {
                         "restart-path": ".",
                         "read-restart": true,
                         "write-restart": false,
-                        restart-lib: "eckit_codec",
+                        "restart-lib": "{LIB}",
+                        "restart-prefix": "{LIB}",
                         "restart-time": "latest"
                     }
                 },
@@ -113,7 +126,7 @@ CASE("simple checkpoint and restart") {
                     "type": "debug-sink"
                 }
             ]
-        })json";
+        })json", restartLib);
         auto env = MultioTestEnvironment(plan);
         EXPECT_EQUAL(env.debugSink().size(), 0);
 
@@ -149,6 +162,17 @@ CASE("simple checkpoint and restart") {
             env.debugSink().pop();
         }
     }
+}
+
+}  // namespace
+
+
+CASE("simple checkpoint and restart with fstream_io") {
+    checkpointAndRestart("fstream_io");
+}
+
+CASE("simple checkpoint and restart with eckit_codec") {
+    checkpointAndRestart("eckit_codec");
 }
 
 

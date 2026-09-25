@@ -18,7 +18,7 @@ ecbuild_add_test(
 ecbuild_add_test(
     TARGET ${PREFIX}_checkpoint_and_restart_delete_dir
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E remove_directory ${CMAKE_CURRENT_BINARY_DIR}/StatisticsDump
+    ARGS -E remove_directory ${CMAKE_CURRENT_BINARY_DIR}/fstream_io ${CMAKE_CURRENT_BINARY_DIR}/eckit_codec
 )
 
 ecbuild_add_test(

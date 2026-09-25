@@ -8,16 +8,39 @@
 
 namespace multio::action::statistics_mtg2 {
 
+namespace {
+
+std::FILE* openFile(const std::string& fname, const char* mode) {
+    std::FILE* fp = std::fopen(fname.c_str(), mode);
+    if (fp == nullptr) {
+        std::ostringstream os;
+        os << "ERROR : unable to open restart file : (" << fname << ")";
+        throw eckit::SeriousBug{os.str(), Here()};
+    }
+    return fp;
+}
+
+void checkCount(std::FILE* fp, std::size_t count, std::size_t expected, const std::string& fname) {
+    if (count != expected) {
+        std::fclose(fp);
+        std::ostringstream os;
+        os << "ERROR : incomplete read/write of restart file : (" << fname << ")";
+        throw eckit::SeriousBug{os.str(), Here()};
+    }
+}
+
+}  // namespace
+
 FstreamIO::FstreamIO(const std::string& path, const std::string& prefix) : StatisticsIO{path, prefix, "fstreamIO"} {};
 
 void FstreamIO::write(const std::string& name, std::size_t fieldSize, std::size_t writeSize) {
     LOG_DEBUG_LIB(LibMultio) << " - The name of the window write file is :: " << generateCurrFileName(name)
                              << std::endl;
     const std::string fname = generateCurrFileName(name);
-    std::FILE* fp = std::fopen(fname.c_str(), "w");
+    std::FILE* fp = openFile(fname, "w");
     std::uint64_t sz = static_cast<std::uint64_t>(fieldSize);
-    std::fwrite(&sz, sizeof(std::uint64_t), 1, fp);
-    std::fwrite(buffer_.data(), sizeof(std::uint64_t), writeSize, fp);
+    checkCount(fp, std::fwrite(&sz, sizeof(std::uint64_t), 1, fp), 1, fname);
+    checkCount(fp, std::fwrite(buffer_.data(), sizeof(std::uint64_t), writeSize, fp), writeSize, fname);
     std::fflush(fp);
     std::fclose(fp);
     return;
@@ -29,8 +52,8 @@ void FstreamIO::readSize(const std::string& name, std::size_t& readSize) {
     const std::string fname = generateCurrFileName(name);
     checkFileExist(fname);
     std::uint64_t sz;
-    std::FILE* fp = std::fopen(fname.c_str(), "r");
-    std::fread(&sz, sizeof(uint64_t), 1, fp);
+    std::FILE* fp = openFile(fname, "r");
+    checkCount(fp, std::fread(&sz, sizeof(uint64_t), 1, fp), 1, fname);
     readSize = static_cast<std::size_t>(sz);
     std::fclose(fp);
     return;
@@ -41,11 +64,12 @@ void FstreamIO::read(const std::string& name, std::size_t readSize) {
                              << std::endl;
     const std::string fname = generateCurrFileName(name);
     checkFileExist(fname);
-    checkFileSize(fname, readSize * sizeof(std::uint64_t));
-    std::FILE* fp = std::fopen(fname.c_str(), "r");
+    // The file holds a uint64 size header followed by the payload (see write)
+    checkFileSize(fname, (readSize + 1) * sizeof(std::uint64_t));
+    std::FILE* fp = openFile(fname, "r");
     std::uint64_t sz;
-    std::fread(&sz, sizeof(uint64_t), 1, fp);
-    std::fread(buffer_.data(), sizeof(uint64_t), readSize, fp);
+    checkCount(fp, std::fread(&sz, sizeof(uint64_t), 1, fp), 1, fname);
+    checkCount(fp, std::fread(buffer_.data(), sizeof(uint64_t), readSize, fp), readSize, fname);
     std::fclose(fp);
     return;
 };
