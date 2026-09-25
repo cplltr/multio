@@ -64,7 +64,11 @@ OperationWindow make_window(const std::unique_ptr<PeriodUpdater>& periodUpdater,
     //       We do our calculations based on a difference since an arbitrary epoch (1st of January in the year 0) as a workarounds
     eckit::DateTime epoch{eckit::Date{0000, 01, 01}, eckit::Time{00, 00, 00}};
     eckit::Second deltaCurr = cfg.curr() - epoch;
-    eckit::Second deltaStart = deltaCurr - eckit::Second{cfg.timespan().value_or(0) * 3600.0};
+    // Without an initial condition, the first message closes the first time increment (as for a timespan)
+    const double span = cfg.timespan() ? *cfg.timespan() * 3600.0
+                      : cfg.options().initialConditionPresent() ? 0.0
+                                                                : static_cast<double>(cfg.timeIncrementInSeconds());
+    eckit::Second deltaStart = deltaCurr - eckit::Second{span};
 
     eckit::DateTime epochPoint{cfg.epoch()};
     eckit::DateTime startPoint{periodUpdater->computeWinStartTime(epoch + deltaStart)};
