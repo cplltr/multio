@@ -49,9 +49,10 @@ std::string makePlan(bool initialConditionPresent, bool emitIncompleteWindows) {
     return plan;
 }
 
-// Send every stride-th step firstStep..lastStep of a forecast starting at date, then a last-step flush
+// Send every stride-th step firstStep..lastStep of a forecast starting at date, then a last-step flush.
+// With a non-zero timespan (in hours), send total precipitation accumulated over that timespan instead of temperature
 void run(MultioTestEnvironment& env, int64_t date, int64_t firstStep, int64_t lastStep, int64_t stride = 1,
-         int64_t timeIncrementInSeconds = 3600) {
+         int64_t timeIncrementInSeconds = 3600, int64_t timespan = 0) {
     for (int64_t step = firstStep; step <= lastStep; step += stride) {
         const double val = static_cast<double>(step);
         Metadata md{{{"param", 130},
@@ -63,6 +64,10 @@ void run(MultioTestEnvironment& env, int64_t date, int64_t firstStep, int64_t la
                      {"step", step},
                      {"misc-timeIncrementInSeconds", timeIncrementInSeconds},
                      {"misc-precision", "double"}}};
+        if (timespan > 0) {
+            md.set("param", 228228);
+            md.set("timespan", timespan);
+        }
         eckit::Buffer pl{&val, sizeof(double)};
         Message msg{{Message::Tag::Field, {}, {}, std::move(md)}, std::move(pl)};
         EXPECT_NO_THROW(env.process(std::move(msg)));
@@ -135,6 +140,14 @@ CASE("month started by a restarted chunk is emitted with output less frequent th
 CASE("month started mid-way is skipped with output less frequent than time step") {
     MultioTestEnvironment env{makePlan(false, false)};
     run(env, 19880103, 2, 2 * 24 * 31, 2, 1800);  // 19880103 01 to 19880203 00
+    EXPECT_EQUAL(countFields(env), 0);
+}
+
+// Hourly accumulations sent every 3 hours only cover a third of the month: the gap between messages
+// must not be mistaken for the sampling interval of the first message
+CASE("month sampled less often than the timespan is skipped") {
+    MultioTestEnvironment env{makePlan(false, false)};
+    run(env, 19880101, 3, 24 * 31, 3, 3600, 1);  // 19880101 03 to 19880201 00
     EXPECT_EQUAL(countFields(env), 0);
 }
 

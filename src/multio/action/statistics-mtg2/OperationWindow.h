@@ -29,7 +29,7 @@ public:
     template <typename T>
     void updateCounts(const T* values, size_t size, double missingValue) const;
 
-    void updateData(const eckit::DateTime& currentPoint);
+    void updateData(const eckit::DateTime& currentPoint, bool startsOneTimeStepBeforeFirstSample);
     void updateWindow(const eckit::DateTime& startPoint, const eckit::DateTime& endPoint);
 
     void dump(std::shared_ptr<StatisticsIO>& IOmanager, const StatisticsOptions& opt) const;
