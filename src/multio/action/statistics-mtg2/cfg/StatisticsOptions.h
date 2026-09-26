@@ -45,6 +45,7 @@ private:
 
     const bool disableStrictMapping_;
     const bool disableSquashing_;
+    const bool emitIncompleteWindows_;
     const std::vector<std::pair<std::string, std::string>> setMetadata_;
 
     const std::optional<OutputTimeReference> outputTimeReference_;
@@ -69,6 +70,7 @@ public:
 
     bool disableStrictMapping() const;
     bool disableSquashing() const;
+    bool emitIncompleteWindows() const;
     const std::vector<std::pair<std::string, std::string>>& setMetadata() const;
     
     std::optional<OutputTimeReference> outputTimeReference() const;

@@ -382,6 +382,17 @@ dm::StatTypeOperation operationNameToStatTypeOperation(std::string_view opName) 
 }  // namespace
 
 void Statistics::emitStatistics(TemporalStatistics& ts, message::Peer source, message::Peer destination) {
+    // Skip windows that did not receive data over their whole period, e.g. a partial month
+    // flushed at the end of a chunk or a month started mid-way by a restarted chunk
+    if (!opt_.emitIncompleteWindows()) {
+        const auto& win = ts.cwin();
+        if (!(win.creationPoint() == win.startPoint()) || !(win.currPoint() == win.endPoint())) {
+            LOG_DEBUG_LIB(LibMultio) << opt_.logPrefix() << " *** Skip incomplete window :: " << win.creationPoint()
+                                     << " to " << win.currPoint() << std::endl;
+            return;
+        }
+    }
+
     for (auto it = ts.begin(); it != ts.end(); ++it) {
         // Skip if there was no input to base this message on in the first place
         if (ts.win().count() == 0) {

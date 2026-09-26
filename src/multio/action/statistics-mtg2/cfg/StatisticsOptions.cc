@@ -121,6 +121,14 @@ bool parseDisableSquashing(const eckit::LocalConfiguration& cfg) {
     throw eckit::SeriousBug{"Unable to read boolean disable-squashing", Here()};
 }
 
+bool parseEmitIncompleteWindows(const eckit::LocalConfiguration& cfg) {
+    const auto r = util::parseBool(cfg, "emit-incomplete-windows", true);
+    if (r) {
+        return *r;
+    }
+    throw eckit::SeriousBug{"Unable to read boolean emit-incomplete-windows", Here()};
+}
+
 std::optional<OutputTimeReference> parseOutputTimeRef(const eckit::LocalConfiguration& cfg) {
     const auto outputTimeRef = cfg.getString("output-time-reference", "");
     if (outputTimeRef.empty()) {
@@ -167,6 +175,7 @@ StatisticsOptions::StatisticsOptions(const eckit::LocalConfiguration& cfg) :
     valueCountThreshold_{parseValueCountThreshold(cfg)},
     disableStrictMapping_{parseDisableStrictMapping(cfg)},
     disableSquashing_{parseDisableSquashing(cfg)},
+    emitIncompleteWindows_{parseEmitIncompleteWindows(cfg)},
     setMetadata_{parseSetMetadata(cfg)},
     outputTimeReference_{parseOutputTimeRef(cfg)} {}
 
@@ -213,6 +222,9 @@ bool StatisticsOptions::disableStrictMapping() const {
 }
 bool StatisticsOptions::disableSquashing() const {
     return disableSquashing_;
+}
+bool StatisticsOptions::emitIncompleteWindows() const {
+    return emitIncompleteWindows_;
 }
 const std::vector<std::pair<std::string, std::string>>& StatisticsOptions::setMetadata() const {
     return setMetadata_;
