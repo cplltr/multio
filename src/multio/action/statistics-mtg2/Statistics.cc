@@ -325,6 +325,12 @@ void Statistics::executeImpl(message::Message msg) {
         throw eckit::SeriousBug(os.str(), Here());
     }
 
+    // The second message reveals the sampling interval of the first one: correct the creation point of a window
+    // opened by a single message before it can be emitted
+    if (!cfg.timespan() && !opt_.initialConditionPresent()) {
+        ts.win().updateCreationPoint(cfg.curr());
+    }
+
     // Decide to emit statistics
     if (ts.isOutsideWindow(msg, cfg)) {
         emitStatistics(ts, msg.source(), msg.destination());
