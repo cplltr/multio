@@ -49,9 +49,10 @@ std::string makePlan(bool initialConditionPresent, bool emitIncompleteWindows) {
     return plan;
 }
 
-// Send hourly steps firstStep..lastStep of a forecast starting at date, then a last-step flush
-void run(MultioTestEnvironment& env, int64_t date, int64_t firstStep, int64_t lastStep) {
-    for (int64_t step = firstStep; step <= lastStep; ++step) {
+// Send every stride-th step firstStep..lastStep of a forecast starting at date, then a last-step flush
+void run(MultioTestEnvironment& env, int64_t date, int64_t firstStep, int64_t lastStep, int64_t stride = 1,
+         int64_t timeIncrementInSeconds = 3600) {
+    for (int64_t step = firstStep; step <= lastStep; step += stride) {
         const double val = static_cast<double>(step);
         Metadata md{{{"param", 130},
                      {"levtype", "sfc"},
@@ -60,6 +61,7 @@ void run(MultioTestEnvironment& env, int64_t date, int64_t firstStep, int64_t la
                      {"date", date},
                      {"time", 0000},
                      {"step", step},
+                     {"misc-timeIncrementInSeconds", timeIncrementInSeconds},
                      {"misc-precision", "double"}}};
         eckit::Buffer pl{&val, sizeof(double)};
         Message msg{{Message::Tag::Field, {}, {}, std::move(md)}, std::move(pl)};
@@ -105,6 +107,34 @@ CASE("partial month at end of run is skipped") {
 CASE("month started mid-way is skipped") {
     MultioTestEnvironment env{makePlan(false, false)};
     run(env, 19880103, 1, 24 * 31);  // 19880103 00 to 19880203 00
+    EXPECT_EQUAL(countFields(env), 0);
+}
+
+// A restarted chunk starting on the 1st of January: the solver does not resend the restart step,
+// so the first message comes one output interval after the start of the month
+CASE("month started by a restarted chunk is emitted") {
+    MultioTestEnvironment env{makePlan(false, false)};
+    run(env, 19880101, 1, 24 * 31);  // 19880101 01 to 19880201 00
+    EXPECT_EQUAL(countFields(env), 1);
+    const auto& field = env.debugSink().front();
+    EXPECT_EQUAL(field.metadata().get<std::int64_t>("date"), 19880101);
+    EXPECT_EQUAL(field.metadata().get<std::int64_t>("timespan"), 24 * 31);
+}
+
+// Same with hourly output from a model with a 1800s time step: the first message comes two
+// time steps after the start of the month
+CASE("month started by a restarted chunk is emitted with output less frequent than time step") {
+    MultioTestEnvironment env{makePlan(false, false)};
+    run(env, 19880101, 2, 2 * 24 * 31, 2, 1800);  // 19880101 01 to 19880201 00
+    EXPECT_EQUAL(countFields(env), 1);
+    const auto& field = env.debugSink().front();
+    EXPECT_EQUAL(field.metadata().get<std::int64_t>("date"), 19880101);
+    EXPECT_EQUAL(field.metadata().get<std::int64_t>("timespan"), 24 * 31);
+}
+
+CASE("month started mid-way is skipped with output less frequent than time step") {
+    MultioTestEnvironment env{makePlan(false, false)};
+    run(env, 19880103, 2, 2 * 24 * 31, 2, 1800);  // 19880103 01 to 19880203 00
     EXPECT_EQUAL(countFields(env), 0);
 }
 

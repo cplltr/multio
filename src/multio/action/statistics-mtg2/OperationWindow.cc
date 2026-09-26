@@ -161,6 +161,16 @@ void OperationWindow::load(std::shared_ptr<StatisticsIO>& IOmanager, const Stati
 void OperationWindow::updateData(const eckit::DateTime& currentPoint) {
     gtLowerBound(currentPoint, true);
     leUpperBound(currentPoint, true);
+    // Without an initial condition, make_window assumes the first message closes one model time step. When the
+    // solver sends data less often (e.g. hourly output with a 1800s time step), it closes one sampling interval
+    // instead, which the second message reveals: move the creation point back accordingly
+    if (count_ == 1) {
+        eckit::DateTime epoch{eckit::Date{0000, 01, 01}, eckit::Time{00, 00, 00}};
+        eckit::DateTime firstSampleStart{epoch + ((currPoint_ - epoch) - (currentPoint - currPoint_))};
+        if (firstSampleStart < creationPoint_) {
+            creationPoint_ = std::max(firstSampleStart, startPoint_);
+        }
+    }
     prevPoint_ = currPoint_;
     currPoint_ = currentPoint;
     count_++;
