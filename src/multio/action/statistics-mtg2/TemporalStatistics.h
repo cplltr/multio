@@ -23,7 +23,7 @@ public:
 
     TemporalStatistics(const std::string& output_freq, const std::vector<std::string>& operations,
                        const message::Message& msg, std::shared_ptr<StatisticsIO>& IOmanager,
-                       const StatisticsConfiguration& cfg);
+                       const StatisticsConfiguration& cfg, const eckit::DateTime& simulationStart);
 
     TemporalStatistics(std::shared_ptr<StatisticsIO>& IOmanager, const StatisticsOptions& opt);
 
@@ -36,6 +36,8 @@ public:
 
     const OperationWindow& cwin() const;
     OperationWindow& win();
+
+    std::string periodName() const { return periodUpdater_->name(); };
 
     message::Metadata& metadata();
 
